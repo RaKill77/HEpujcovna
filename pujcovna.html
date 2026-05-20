@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Půjčovna">
+<title>Půjčovna</title>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #2563EB;
+    --primary-dark: #1d4ed8;
+    --success: #16A34A;
+    --warning: #D97706;
+    --danger: #DC2626;
+    --gray: #6B7280;
+    --light: #F9FAFB;
+    --border: #E5E7EB;
+    --card: #FFFFFF;
+    --text: #111827;
+    --text-secondary: #6B7280;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--light); color: var(--text); max-width: 480px; margin: 0 auto; min-height: 100vh; }
+
+  /* Header */
+  .header { background: #111111; color: white; padding: 16px 20px; padding-top: max(16px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+  .header-back { background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 10px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .header h1 { font-size: 17px; font-weight: 600; flex: 1; }
+
+  /* Bottom nav */
+  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: white; border-top: 1px solid var(--border); display: flex; padding-bottom: max(8px, env(safe-area-inset-bottom)); z-index: 100; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px 4px; cursor: pointer; border: none; background: none; gap: 3px; }
+  .nav-icon { font-size: 22px; }
+  .nav-label { font-size: 10px; font-weight: 500; color: var(--gray); font-family: 'DM Sans', sans-serif; }
+  .nav-item.active .nav-label { color: var(--primary); }
+  .nav-item.active .nav-icon { transform: scale(1.1); }
+
+  /* Content */
+  .content { padding: 16px; padding-bottom: 90px; }
+
+  /* Cards */
+  .card { background: white; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .card-title { font-size: 11px; font-weight: 600; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+  /* Stats grid */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .stat-card { background: white; border-radius: 14px; padding: 14px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-top: 3px solid var(--border); }
+  .stat-value { font-size: 28px; font-weight: 700; margin: 4px 0; }
+  .stat-label { font-size: 11px; color: var(--gray); }
+
+  /* Action buttons */
+  .actions-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .action-btn { border: none; border-radius: 12px; padding: 14px 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .action-btn span { font-size: 22px; }
+  .action-btn label { font-size: 11px; font-weight: 600; color: white; text-align: center; cursor: pointer; }
+
+  /* Loan rows */
+  .loan-row { background: white; border-radius: 10px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .loan-row.overdue { border-left: 4px solid var(--danger); }
+  .loan-info { flex: 1; }
+  .loan-name { font-size: 14px; font-weight: 600; }
+  .loan-meta { font-size: 12px; color: var(--gray); margin-top: 2px; }
+  .loan-right { text-align: right; }
+  .loan-date { font-size: 12px; font-weight: 600; color: var(--gray); }
+  .loan-price { font-size: 11px; color: var(--gray); margin-top: 2px; }
+
+  /* Badge */
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #F0FDF4; color: var(--success); }
+  .badge-blue { background: #EFF6FF; color: var(--primary); }
+  .badge-red { background: #FEF2F2; color: var(--danger); }
+  .badge-amber { background: #FFFBEB; color: var(--warning); }
+
+  /* Search */
+  .search-input { width: 100%; border: 1px solid var(--border); border-radius: 12px; padding: 11px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; background: white; margin-bottom: 10px; }
+  .search-input:focus { border-color: var(--primary); }
+
+  /* Filter chips */
+  .filter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .filter-chip { border: 1px solid var(--border); background: white; border-radius: 20px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .filter-chip.active { background: #111111; border-color: var(--primary); color: white; }
+
+  /* Item card */
+  .item-card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); cursor: pointer; }
+  .item-card:active { opacity: 0.8; }
+  .item-info { flex: 1; }
+  .item-name { font-size: 15px; font-weight: 600; }
+  .item-meta { font-size: 12px; color: var(--gray); margin-top: 2px; }
+  .item-right { text-align: right; }
+  .item-price { font-size: 12px; color: var(--gray); margin-top: 4px; }
+
+  /* Customer card */
+  .customer-card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .avatar { width: 44px; height: 44px; border-radius: 22px; background: #DBEAFE; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: var(--primary); flex-shrink: 0; }
+
+  /* FAB */
+  .fab { position: fixed; bottom: 80px; right: 20px; width: 54px; height: 54px; border-radius: 27px; background: #111111; border: none; color: white; font-size: 28px; cursor: pointer; box-shadow: 0 4px 16px rgba(37,99,235,0.4); display: flex; align-items: center; justify-content: center; z-index: 99; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: flex; align-items: flex-end; }
+  .modal { background: white; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-height: 90vh; overflow-y: auto; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+  .modal.hidden, .hidden { display: none !important; }
+
+  /* Form */
+  .field-label { font-size: 12px; font-weight: 600; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; margin-top: 14px; }
+  .field-input { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px; font-size: 15px; font-family: 'DM Sans', sans-serif; outline: none; }
+  .field-input:focus { border-color: var(--primary); }
+
+  /* Days chips */
+  .days-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .day-chip { border: 1px solid var(--border); background: white; border-radius: 20px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .day-chip.active { background: #111111; border-color: var(--primary); color: white; }
+
+  /* Buttons */
+  .btn { width: 100%; padding: 15px; border-radius: 14px; border: none; font-size: 16px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; margin-top: 12px; }
+  .btn-primary { background: #111111; color: white; }
+  .btn-success { background: var(--success); color: white; }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-gray { background: var(--border); color: var(--gray); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Scanner */
+  .scanner-container { position: relative; background: black; border-radius: 16px; overflow: hidden; margin-bottom: 16px; }
+  #scanner-video { width: 100%; display: block; }
+  .scanner-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .scanner-frame { width: 200px; height: 200px; position: relative; }
+  .scanner-corner { position: absolute; width: 24px; height: 24px; border-color: white; border-style: solid; }
+  .scanner-corner.tl { top: 0; left: 0; border-width: 3px 0 0 3px; }
+  .scanner-corner.tr { top: 0; right: 0; border-width: 3px 3px 0 0; }
+  .scanner-corner.bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; }
+  .scanner-corner.br { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
+  .scanner-line { position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: rgba(255,100,100,0.8); animation: scan 2s ease-in-out infinite; }
+  @keyframes scan { 0%, 100% { top: 10%; } 50% { top: 90%; } }
+
+  /* Mode toggle */
+  .mode-toggle { display: flex; background: white; border-radius: 12px; padding: 4px; margin-bottom: 16px; border: 1px solid var(--border); }
+  .mode-btn { flex: 1; padding: 10px; border: none; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; color: var(--gray); }
+  .mode-btn.active { background: #111111; color: white; }
+
+  /* Customer select */
+  .customer-select-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; cursor: pointer; border-bottom: 1px solid var(--border); }
+  .customer-select-item:last-child { border-bottom: none; }
+  .customer-select-item.selected { background: #EFF6FF; }
+  .customer-select-item .check { color: var(--success); font-size: 18px; }
+
+  /* Return info */
+  .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #F3F4F6; }
+  .info-label { font-size: 14px; color: var(--gray); }
+  .info-value { font-size: 14px; font-weight: 600; }
+
+  /* Loading */
+  .loading { display: flex; align-items: center; justify-content: center; padding: 32px; }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 40px 20px; color: var(--gray); font-size: 15px; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #1F2937; color: white; padding: 12px 20px; border-radius: 12px; font-size: 14px; z-index: 300; white-space: nowrap; animation: fadeIn 0.3s ease; max-width: 90vw; text-align: center; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } }
+
+  /* Category chips */
+  .cat-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .cat-chip { border: 1px solid var(--border); background: white; border-radius: 20px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .cat-chip.active { background: #111111; border-color: var(--primary); color: white; }
+
+  /* Overdue banner */
+  .overdue-banner { background: #FEF2F2; border-left: 4px solid var(--danger); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .overdue-banner p { color: var(--danger); font-weight: 600; font-size: 14px; }
+
+  .section-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; margin-top: 4px; }
+  .count-text { font-size: 12px; color: var(--gray); margin-bottom: 8px; }
+
+  /* History */
+  .history-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .hist-stat { background: white; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .hist-val { font-size: 18px; font-weight: 700; }
+  .hist-lbl { font-size: 10px; color: var(--gray); margin-top: 2px; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header" id="main-header" style="background:#111;justify-content:space-between;">
+  <h1 id="header-title" style="font-size:16px;">🏪 Půjčovna</h1>
+  <img src="data:image/png;base64,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" style="height:36px;opacity:0.95;" alt="Hell Events">
+</div>
+
+<!-- PAGES -->
+<div id="page-dashboard" class="page active">
+  <div class="content">
+    <div id="dashboard-content"></div>
+  </div>
+</div>
+
+<div id="page-scanner" class="page">
+  <div class="content">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-loan" onclick="setScanMode('loan')">📷 Půjčit</button>
+      <button class="mode-btn" id="mode-return" onclick="setScanMode('return')">↩️ Vrátit</button>
+    </div>
+    <div style="position:relative;border-radius:16px;overflow:hidden;background:#000;margin-bottom:12px;">
+      <video id="scanner-video" autoplay playsinline muted style="width:100%;display:block;max-height:320px;object-fit:cover;"></video>
+      <canvas id="scanner-canvas" style="display:none;"></canvas>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="width:200px;height:200px;position:relative;">
+          <div style="position:absolute;top:0;left:0;width:24px;height:24px;border-top:3px solid white;border-left:3px solid white;"></div>
+          <div style="position:absolute;top:0;right:0;width:24px;height:24px;border-top:3px solid white;border-right:3px solid white;"></div>
+          <div style="position:absolute;bottom:0;left:0;width:24px;height:24px;border-bottom:3px solid white;border-left:3px solid white;"></div>
+          <div style="position:absolute;bottom:0;right:0;width:24px;height:24px;border-bottom:3px solid white;border-right:3px solid white;"></div>
+        </div>
+      </div>
+    </div>
+    <p id="scanner-hint" style="text-align:center;color:var(--gray);font-size:13px;margin-bottom:12px;">Namiř kameru na QR kód</p>
+    <div>
+      <p style="font-size:13px;color:var(--gray);margin-bottom:8px;">Nebo zadej ID ručně:</p>
+      <div style="display:flex;gap:8px;">
+        <input class="search-input" style="margin:0;flex:1;" id="manual-id" placeholder="např. P001" />
+        <button class="btn btn-primary" style="width:auto;padding:11px 16px;margin:0;" onclick="processManualId()">Načíst</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="page-catalog" class="page">
+  <div class="content">
+    <input class="search-input" id="catalog-search" placeholder="🔍 Hledat předmět, barvu, rozměr..." oninput="renderCatalog()">
+    <div class="filter-row" id="catalog-filters">
+      <button class="filter-chip active" onclick="setCatalogFilter('Vše',this)">Vše</button>
+      <button class="filter-chip" onclick="setCatalogFilter('dostupny',this)">✅ Dostupný</button>
+      <button class="filter-chip" onclick="setCatalogFilter('pujceno',this)">📦 Půjčeno</button>
+      <button class="filter-chip" onclick="setCatalogFilter('oprava',this)">🔧 Oprava</button>
+    </div>
+    <div class="filter-row" id="category-filters" style="margin-bottom:2px;"></div>
+    <div class="filter-row" id="sklad-filters" style="margin-bottom:4px;"></div>
+    <div id="catalog-list"></div>
+  </div>
+  <button class="fab" onclick="openAddItem()">+</button>
+</div>
+
+<div id="page-customers" class="page">
+  <div class="content">
+    <input class="search-input" id="customer-search" placeholder="🔍 Hledat zákazníka..." oninput="renderCustomers()">
+    <div id="customer-list"></div>
+  </div>
+  <button class="fab" onclick="openAddCustomer()">+</button>
+</div>
+
+<div id="page-history" class="page">
+  <div class="content">
+    <div id="history-stats"></div>
+    <input class="search-input" id="history-search" placeholder="🔍 Hledat v historii..." oninput="renderHistory()">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="filter-chip" id="toggle-active" onclick="toggleActiveOnly()">Jen aktivní</button>
+    </div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<div id="page-crew" class="page">
+  <div class="content">
+    <input class="search-input" id="crew-search" placeholder="🔍 Hledat člena crew..." oninput="renderCrew()">
+    <div id="crew-list"></div>
+  </div>
+  <button class="fab" onclick="openAddCrew()">+</button>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="navigate('dashboard')">
+    <span class="nav-icon">🏠</span>
+    <span class="nav-label">Přehled</span>
+  </button>
+  <button class="nav-item" onclick="navigate('scanner')">
+    <span class="nav-icon">📷</span>
+    <span class="nav-label">Skener</span>
+  </button>
+  <button class="nav-item" onclick="navigate('catalog')">
+    <span class="nav-icon">📦</span>
+    <span class="nav-label">Katalog</span>
+  </button>
+  <button class="nav-item" onclick="navigate('customers')">
+    <span class="nav-icon">🎪</span>
+    <span class="nav-label">Akce/Zák</span>
+  </button>
+  <button class="nav-item" onclick="navigate('crew')">
+    <span class="nav-icon">👥</span>
+    <span class="nav-label">Crew</span>
+  </button>
+  <button class="nav-item" onclick="navigate('history')">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">Historie</span>
+  </button>
+</nav>
+
+<!-- MODALS -->
+
+<!-- Loan Detail Modal -->
+<div class="modal-overlay hidden" id="modal-loan">
+  <div class="modal">
+    <div class="modal-title">📦 Půjčení předmětu</div>
+    <div id="loan-item-info"></div>
+    <div class="field-label">Počet dní</div>
+    <div class="days-row">
+      <button class="day-chip active" onclick="setDays(1,this)">1d</button>
+      <button class="day-chip" onclick="setDays(3,this)">3d</button>
+      <button class="day-chip" onclick="setDays(7,this)">7d</button>
+      <button class="day-chip" onclick="setDays(14,this)">14d</button>
+      <button class="day-chip" onclick="setDays(30,this)">30d</button>
+      <input class="field-input" style="width:70px;padding:6px 10px;text-align:center;" id="days-custom" type="number" min="1" value="1" oninput="updateDaysFromInput()">
+    </div>
+    <div id="loan-summary" style="font-size:13px;color:var(--gray);margin-bottom:12px;"></div>
+    <div class="field-label">Zákazník / Název akce *</div>
+    <input class="search-input" id="customer-filter" placeholder="Hledat zákazníka nebo zadej název akce..." oninput="renderCustomerSelect()">
+    <div id="customer-select-list" style="max-height:160px;overflow-y:auto;margin-bottom:4px;"></div>
+    <div class="field-label">Crew člen *</div>
+    <div id="crew-select-list" style="max-height:140px;overflow-y:auto;margin-bottom:4px;"></div>
+    <button class="btn btn-success" onclick="confirmLoan()" id="btn-confirm-loan">✅ Potvrdit půjčení</button>
+    <button class="btn btn-gray" onclick="closeModal('modal-loan')">Zrušit</button>
+  </div>
+</div>
+
+<!-- Return Modal -->
+<div class="modal-overlay hidden" id="modal-return">
+  <div class="modal">
+    <div class="modal-title">↩️ Vrácení předmětu</div>
+    <div id="return-info"></div>
+    <button class="btn btn-success" onclick="confirmReturn()" id="btn-confirm-return">✅ Potvrdit vrácení</button>
+    <button class="btn btn-gray" onclick="closeModal('modal-return')">Zrušit</button>
+  </div>
+</div>
+
+<!-- Add Item Modal -->
+<div class="modal-overlay hidden" id="modal-add-item">
+  <div class="modal">
+    <div class="modal-title">➕ Nový předmět</div>
+    <div class="field-label">Název *</div>
+    <input class="field-input" id="item-nazev" placeholder="např. Horské kolo Trek">
+    <div class="field-label">Kategorie</div>
+    <div class="cat-chips" style="margin-bottom:4px;">
+      <button class="cat-chip active" onclick="setCategory('Kola',this)">Kola</button>
+      <button class="cat-chip" onclick="setCategory('Stany',this)">Stany</button>
+      <button class="cat-chip" onclick="setCategory('Elektronika',this)">Elektronika</button>
+      <button class="cat-chip" onclick="setCategory('Nářadí',this)">Nářadí</button>
+      <button class="cat-chip" onclick="setCategory('Sport',this)">Sport</button>
+      <button class="cat-chip" onclick="setCategory('Ostatní',this)">Ostatní</button>
+    </div>
+    <div class="field-label">Cena za den (Kč) *</div>
+    <input class="field-input" id="item-cena" type="number" placeholder="150">
+    <div class="field-label">Popis</div>
+    <textarea class="field-input" id="item-popis" rows="3" placeholder="Velikost, stav..."></textarea>
+    <button class="btn btn-primary" onclick="saveItem()" id="btn-save-item">Uložit předmět</button>
+    <button class="btn btn-gray" onclick="closeModal('modal-add-item')">Zrušit</button>
+  </div>
+</div>
+
+<!-- Add Customer Modal -->
+<div class="modal-overlay hidden" id="modal-add-customer">
+  <div class="modal">
+    <div class="modal-title">👤 Nový zákazník</div>
+    <div class="field-label">Jméno *</div>
+    <input class="field-input" id="cust-jmeno" placeholder="Jan Novák">
+    <div class="field-label">Telefon</div>
+    <input class="field-input" id="cust-telefon" type="tel" placeholder="+420 777 123 456">
+    <div class="field-label">Email</div>
+    <input class="field-input" id="cust-email" type="email" placeholder="jan@email.cz">
+    <button class="btn btn-primary" onclick="saveCustomer()" id="btn-save-customer">Uložit zákazníka</button>
+    <button class="btn btn-gray" onclick="closeModal('modal-add-customer')">Zrušit</button>
+  </div>
+</div>
+
+<!-- Add Crew Modal -->
+<div class="modal-overlay hidden" id="modal-add-crew">
+  <div class="modal">
+    <div class="modal-title">🎪 Nový člen crew</div>
+    <div class="field-label">Jméno *</div>
+    <input class="field-input" id="crew-jmeno" placeholder="např. Radim">
+    <button class="btn btn-primary" onclick="saveCrew()" id="btn-save-crew">Uložit</button>
+    <button class="btn btn-gray" onclick="closeModal('modal-add-crew')">Zrušit</button>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────
+const API = 'https://sheetdb.io/api/v1/4tby3qkh06xs3';
+const SHEETS = { ITEMS: 'Sklad', CUSTOMERS: 'Zakaznici', LOANS: 'Vypujcky', CREW: 'Crew' };
+
+// Mapování sloupců listu Sklad
+function rowToItem(r) {
+  return {
+    id:        (r['id'] || '').trim(),
+    nazev:     r['nazev'] || '',
+    kategorie: r['kategorie'] || '',
+    barva:     r['barva'] || '',
+    rozmer:    r['rozmer'] || '',
+    popis:     r['popis'] || '',
+    lokace:    r['lokace'] || '',
+    regal:     r['regal'] || '',
+    prepravka: (r['prepravka'] || '').trim(),
+    pozice:    r['pozice'] || '',
+    stav:      r['stav'] || 'dostupny',
+    cena_den:  r['cena_den'] || r['cena'] || '0',
+  };
+}
+
+// ── STATE ───────────────────────────────────────────────────
+let state = { items: [], customers: [], loans: [], crew: [], loading: false };
+let scanMode = 'loan';
+let selectedItem = null;
+let selectedCustomer = null;
+let selectedCrewMember = null;
+let selectedLoan = null;
+let selectedDays = 1;
+let selectedCategory = 'Kola';
+let catalogFilter = 'Vše';
+let historyActiveOnly = false;
+let cameraStream = null;
+let barcodeDetector = null;
+let scanning = false;
+
+// ── API ─────────────────────────────────────────────────────
+async function apiGet(sheet) {
+  const res = await fetch(`${API}?sheet=${sheet}`);
+  if (!res.ok) throw new Error('API chyba');
+  const text = await res.text();
+  // Fix UTF-8 encoding from SheetDB
+  try {
+    return JSON.parse(decodeURIComponent(escape(text)));
+  } catch(e) {
+    return JSON.parse(text);
+  }
+}
+
+async function apiPost(sheet, data) {
+  const res = await fetch(`${API}?sheet=${sheet}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data })
+  });
+  if (!res.ok) throw new Error('API chyba');
+  return res.json();
+}
+
+async function apiDelete(sheet, column, value) {
+  const trimmedValue = String(value).trim();
+  const res = await fetch(`${API}/${column}/${encodeURIComponent(trimmedValue)}?sheet=${sheet}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) throw new Error('API chyba při mazání');
+  return res.json();
+}
+
+async function apiPatch(sheet, column, value, data) {
+  const trimmedValue = String(value).trim();
+  const res = await fetch(`${API}/${column}/${encodeURIComponent(trimmedValue)}?sheet=${sheet}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data })
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error('PATCH error:', errText);
+    throw new Error('API chyba: ' + errText);
+  }
+  return res.json();
+}
+
+// ── LOAD DATA ────────────────────────────────────────────────
+async function loadAll() {
+  try {
+    const [items, customers, loans, crew] = await Promise.all([
+      apiGet(SHEETS.ITEMS),
+      apiGet(SHEETS.CUSTOMERS),
+      apiGet(SHEETS.LOANS),
+      apiGet(SHEETS.CREW)
+    ]);
+    state.items = items.map(rowToItem);
+    state.customers = customers;
+    state.crew = crew.map(r => ({ id: (r['id'] || '').trim(), jmeno: r['jmeno'] || '' }));
+    state.loans = loans.map(l => ({
+      ...l,
+      id: (l.id || '').trim(),
+      predmet_id: (l.predmet_id || l['predmet id'] || '').trim(),
+      zakaznik_id: (l.zakaznik_id || l['zakaznik id'] || '').trim(),
+      datum_od: l.datum_od || l['datum od'] || '',
+      datum_do: l.datum_do || l['datum do'] || '',
+      crew: l.crew || '',
+      vraceno: l.vraceno === 'TRUE' || l.vraceno === true || l.vraceno === 'true' || l.vraceno === 1 || l.vraceno === '1'
+    // Filter out entries with invalid dates (old test data with numeric dates)
+    })).filter(l => l.datum_do && l.datum_do.includes('-'));
+    renderDashboard();
+    renderCatalog();
+    renderCustomers();
+    renderCrew();
+    renderHistory();
+  } catch(e) {
+    showToast('❌ Chyba načítání dat');
+  }
+}
+
+// ── NAVIGATION ───────────────────────────────────────────────
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.querySelectorAll('.nav-item')[['dashboard','scanner','catalog','customers','crew','history'].indexOf(page)].classList.add('active');
+
+  const titles = { dashboard: '🏪 Půjčovna', scanner: '📷 Skener', catalog: '📦 Katalog', customers: '👥 Akce/Zák', crew: '🎪 Crew', history: '📋 Historie' };
+  document.getElementById('header-title').textContent = titles[page];
+
+  if (page === 'scanner') startCamera();
+  else stopCamera();
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────
+function renderDashboard() {
+  const activeLoans = state.loans.filter(l => !l.vraceno);
+  const today = new Date().toISOString().split('T')[0];
+  const overdue = activeLoans.filter(l => l.datum_do < today);
+  const available = state.items.filter(i => i.stav === 'dostupny').length;
+  const loaned = state.items.filter(i => i.stav === 'pujceno').length;
+
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card" style="border-top-color:#16A34A">
+        <div style="font-size:24px">✅</div>
+        <div class="stat-value" style="color:#16A34A">${available}</div>
+        <div class="stat-label">Dostupné</div>
+      </div>
+      <div class="stat-card" style="border-top-color:#2563EB">
+        <div style="font-size:24px">📦</div>
+        <div class="stat-value" style="color:#2563EB">${loaned}</div>
+        <div class="stat-label">Půjčeno</div>
+      </div>
+      <div class="stat-card" style="border-top-color:${overdue.length>0?'#DC2626':'#6B7280'}">
+        <div style="font-size:24px">⚠️</div>
+        <div class="stat-value" style="color:${overdue.length>0?'#DC2626':'#6B7280'}">${overdue.length}</div>
+        <div class="stat-label">Po splatnosti</div>
+      </div>
+      <div class="stat-card" style="border-top-color:#6B7280">
+        <div style="font-size:24px">👥</div>
+        <div class="stat-value" style="color:#6B7280">${state.customers.length}</div>
+        <div class="stat-label">Zákazníci</div>
+      </div>
+    </div>
+
+    <p class="section-title">Rychlé akce</p>
+    <div class="actions-row">
+      <button class="action-btn" style="background:#2563EB" onclick="navigate('scanner');setScanMode('loan')">
+        <span>📷</span><label>Půjčit</label>
+      </button>
+      <button class="action-btn" style="background:#16A34A" onclick="navigate('scanner');setScanMode('return')">
+        <span>↩️</span><label>Vrátit</label>
+      </button>
+      <button class="action-btn" style="background:#D97706" onclick="openAddItem()">
+        <span>➕</span><label>Přidat předmět</label>
+      </button>
+    </div>`;
+
+  if (overdue.length > 0) {
+    html += `<p class="section-title" style="color:#DC2626">⚠️ Po splatnosti</p>`;
+    overdue.forEach(loan => {
+      const item = state.items.find(i => i.id === loan.predmet_id);
+      const customer = state.customers.find(c => c.id === loan.zakaznik_id);
+      html += `<div class="overdue-banner"><p>${item?.nazev || loan.predmet_id} → ${customer?.jmeno || loan.zakaznik_id}</p><span style="font-size:12px;color:#DC2626">Vrátit do: ${loan.datum_do}</span></div>`;
+    });
+  }
+
+  html += `<p class="section-title">Aktivní půjčky (${activeLoans.length})</p>`;
+  if (activeLoans.length === 0) {
+    html += `<div class="empty">Žádné aktivní půjčky</div>`;
+  } else {
+    activeLoans.forEach(loan => {
+      const item = state.items.find(i => i.id === loan.predmet_id);
+      const customer = state.customers.find(c => c.id === loan.zakaznik_id);
+      const od = loan.datum_do < today;
+      html += `<div class="loan-row ${od?'overdue':''}">
+        <div class="loan-info">
+          <div class="loan-name">${item?.nazev || loan.predmet_id}</div>
+          <div class="loan-meta">👤 ${customer?.jmeno || loan.zakaznik_id}</div>
+        </div>
+        <div class="loan-right">
+          <div class="loan-date" style="color:${od?'#DC2626':'#6B7280'}">${od?'⚠️ ':''} ${loan.datum_do}</div>
+          <div class="loan-price">${loan.cena} Kč/den</div>
+        </div>
+      </div>`;
+    });
+  }
+
+  document.getElementById('dashboard-content').innerHTML = html;
+}
+
+// ── CATALOG ──────────────────────────────────────────────────
+let categoryFilter = 'Vše';
+let skladFilter = 'Vše';
+
+function setCatalogFilter(filter, el) {
+  catalogFilter = filter;
+  document.querySelectorAll('#catalog-filters .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderCatalog();
+}
+
+function setCategoryFilter(cat, el) {
+  categoryFilter = cat;
+  document.querySelectorAll('#category-filters .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderCatalog();
+}
+
+function setSkladFilter(sklad, el) {
+  skladFilter = sklad;
+  document.querySelectorAll('#sklad-filters .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderCatalog();
+}
+
+function renderCategoryFilters() {
+  const categories = ['Vše', ...new Set(state.items.map(i => i.kategorie).filter(Boolean))];
+  document.getElementById('category-filters').innerHTML = categories.map(cat =>
+    `<button class="filter-chip ${cat === categoryFilter ? 'active' : ''}" onclick="setCategoryFilter('${cat}',this)">${cat}</button>`
+  ).join('');
+}
+
+function renderSkladFilters() {
+  const sklady = ['Vše', ...new Set(state.items.map(i => i.lokace).filter(Boolean))];
+  document.getElementById('sklad-filters').innerHTML = sklady.map(s =>
+    `<button class="filter-chip ${s === skladFilter ? 'active' : ''}" onclick="setSkladFilter('${s}',this)">🏭 ${s}</button>`
+  ).join('');
+}
+
+function renderCatalog() {
+  renderCategoryFilters();
+  renderSkladFilters();
+  const search = document.getElementById('catalog-search')?.value.toLowerCase() || '';
+  const statusLabels = { dostupny: 'Dostupný', pujceno: 'Půjčeno', oprava: 'Oprava' };
+  const statusColors = { dostupny: '#16A34A', pujceno: '#2563EB', oprava: '#D97706' };
+  const statusEmoji  = { dostupny: '✅', pujceno: '📦', oprava: '🔧' };
+
+  const filtered = state.items.filter(item => {
+    const matchStatus   = catalogFilter === 'Vše' || item.stav === catalogFilter;
+    const matchCategory = categoryFilter === 'Vše' || item.kategorie === categoryFilter;
+    const matchSklad    = skladFilter === 'Vše' || item.lokace === skladFilter;
+    const matchSearch   = !search ||
+      item.nazev?.toLowerCase().includes(search) ||
+      item.id?.toLowerCase().includes(search) ||
+      item.kategorie?.toLowerCase().includes(search) ||
+      item.barva?.toLowerCase().includes(search) ||
+      item.rozmer?.toLowerCase().includes(search) ||
+      item.popis?.toLowerCase().includes(search) ||
+      item.lokace?.toLowerCase().includes(search);
+    return matchStatus && matchCategory && matchSklad && matchSearch;
+  });
+
+  let html = `<p class="count-text">${filtered.length} předmětů</p>`;
+  if (filtered.length === 0) {
+    html += `<div class="empty">Žádné předměty</div>`;
+  } else {
+    filtered.forEach(item => {
+      const color = statusColors[item.stav] || '#6B7280';
+      const emoji = statusEmoji[item.stav] || '❓';
+      const details = [item.barva, item.rozmer, item.popis].filter(Boolean).join(' • ');
+      const lokaceInfo = [item.lokace, item.regal, item.prepravka].filter(Boolean).join(' / ');
+      html += `<div class="item-card" onclick="handleItemClick('${item.id.trim()}')">
+        <div class="item-info">
+          <div class="item-name">${item.nazev}</div>
+          <div class="item-meta">${item.kategorie} • ID: ${item.id}</div>
+          ${details ? `<div class="item-meta" style="color:#374151">${details}</div>` : ''}
+          ${lokaceInfo ? `<div class="item-meta" style="color:#9CA3AF;font-size:11px">📍 ${lokaceInfo}</div>` : ''}
+        </div>
+        <div class="item-right">
+          <span class="badge" style="background:${color}20;color:${color}">${emoji} ${statusLabels[item.stav] || item.stav}</span>
+          ${item.cena_den && item.cena_den !== '0' ? `<div class="item-price">${item.cena_den} Kč/den</div>` : ''}
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('catalog-list').innerHTML = html;
+}
+
+function handleItemClick(itemId) {
+  const item = state.items.find(i => i.id.trim() === itemId.trim());
+  if (!item) return;
+  if (item.stav === 'pujceno') {
+    const loan = state.loans.find(l => l.predmet_id.trim() === itemId.trim() && !l.vraceno);
+    if (loan) openReturnModal(loan);
+  } else if (item.stav === 'dostupny') {
+    openLoanModal(item);
+  }
+}
+
+// ── CUSTOMERS ────────────────────────────────────────────────
+function renderCustomers() {
+  const search = document.getElementById('customer-search')?.value.toLowerCase() || '';
+  const filtered = state.customers.filter(c =>
+    !search || c.jmeno?.toLowerCase().includes(search) || c.telefon?.includes(search) || c.email?.toLowerCase().includes(search)
+  );
+
+  let html = `<p class="count-text">${filtered.length} zákazníků / akcí</p>`;
+  if (filtered.length === 0) {
+    html += `<div class="empty">Žádní zákazníci</div>`;
+  } else {
+    filtered.forEach(c => {
+      const activeCount = state.loans.filter(l => l.zakaznik_id === c.id && !l.vraceno).length;
+      html += `<div class="customer-card">
+        <div class="avatar">${(c.jmeno||'?')[0].toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:600">${c.jmeno}</div>
+          <div style="font-size:12px;color:var(--gray)">${c.telefon || ''} ${c.email || ''}</div>
+        </div>
+        ${activeCount > 0 ? `<span class="badge badge-blue">${activeCount} půjčeno</span>` : ''}
+        <button onclick="deleteCustomer('${c.id}','${c.jmeno.replace(/'/g, "\\'")}')" style="background:none;border:none;color:#DC2626;font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">−</button>
+      </div>`;
+    });
+  }
+  document.getElementById('customer-list').innerHTML = html;
+}
+
+async function deleteCustomer(id, jmeno) {
+  if (!confirm(`Smazat zákazníka "${jmeno}"?\n\nHistorie půjček zůstane zachována.`)) return;
+  try {
+    await apiDelete(SHEETS.CUSTOMERS, 'id', id);
+    await loadAll();
+    showToast(`✅ "${jmeno}" smazán`);
+  } catch(e) {
+    showToast('❌ Chyba při mazání');
+  }
+}
+
+// ── CREW ─────────────────────────────────────────────────────
+function renderCrew() {
+  const search = document.getElementById('crew-search')?.value.toLowerCase() || '';
+  const today = new Date().toISOString().split('T')[0];
+
+  const filtered = state.crew.filter(c =>
+    !search || c.jmeno?.toLowerCase().includes(search)
+  );
+
+  let html = `<p class="count-text">${filtered.length} členů crew</p>`;
+
+  if (filtered.length === 0) {
+    html += `<div class="empty">Žádní členové crew</div>`;
+  } else {
+    filtered.forEach(c => {
+      html += `<div class="customer-card">
+        <div class="avatar" style="background:#F3E8FF;color:#7C3AED">${(c.jmeno||'?')[0].toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700">${c.jmeno}</div>
+        </div>
+        <button onclick="deleteCrew('${c.id}','${c.jmeno.replace(/'/g, "\\'")}')" style="background:none;border:none;color:#DC2626;font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">−</button>
+      </div>`;
+    });
+  }
+
+  const el = document.getElementById('crew-list');
+  if (el) el.innerHTML = html;
+}
+
+async function deleteCrew(id, jmeno) {
+  if (!confirm(`Smazat "${jmeno}" z crew?`)) return;
+  try {
+    await apiDelete(SHEETS.CREW, 'id', id);
+    await loadAll();
+    showToast(`✅ "${jmeno}" smazán z crew`);
+  } catch(e) {
+    showToast('❌ Chyba při mazání');
+  }
+}
+
+// ── HISTORY ──────────────────────────────────────────────────
+function toggleActiveOnly() {
+  historyActiveOnly = !historyActiveOnly;
+  const btn = document.getElementById('toggle-active');
+  btn.classList.toggle('active', historyActiveOnly);
+  renderHistory();
+}
+
+function renderHistory() {
+  const search = document.getElementById('history-search')?.value.toLowerCase() || '';
+  const today = new Date().toISOString().split('T')[0];
+  const itemMap = Object.fromEntries(state.items.map(i => [i.id, i]));
+  const custMap = Object.fromEntries(state.customers.map(c => [c.id, c]));
+
+  const totalRevenue = state.loans.filter(l => l.vraceno).reduce((acc, l) => {
+    const item = itemMap[l.predmet_id];
+    if (!item) return acc;
+    const days = Math.max(1, Math.ceil((new Date(l.datum_do) - new Date(l.datum_od)) / 86400000));
+    return acc + (days * parseFloat(item.cena_den || 0));
+  }, 0);
+
+  const statsHtml = `<div class="history-stats">
+    <div class="hist-stat"><div class="hist-val">${state.loans.length}</div><div class="hist-lbl">Celkem</div></div>
+    <div class="hist-stat"><div class="hist-val" style="color:#2563EB">${state.loans.filter(l=>!l.vraceno).length}</div><div class="hist-lbl">Aktivní</div></div>
+    <div class="hist-stat"><div class="hist-val" style="color:#16A34A">${Math.round(totalRevenue).toLocaleString('cs-CZ')} Kč</div><div class="hist-lbl">Příjmy</div></div>
+  </div>`;
+  document.getElementById('history-stats').innerHTML = statsHtml;
+
+  const sorted = [...state.loans].sort((a,b) => (b.datum_od||'').localeCompare(a.datum_od||''));
+  const filtered = sorted.filter(loan => {
+    const item = itemMap[loan.predmet_id];
+    const customer = custMap[loan.zakaznik_id];
+    const haystack = [loan.id, loan.predmet_id, loan.zakaznik_id, item?.nazev, customer?.jmeno, customer?.telefon].join(' ').toLowerCase();
+    return (!search || haystack.includes(search)) && (!historyActiveOnly || !loan.vraceno);
+  });
+
+  let html = `<p class="count-text">${filtered.length} záznamů</p>`;
+  filtered.forEach(loan => {
+    const item = itemMap[loan.predmet_id];
+    const customer = custMap[loan.zakaznik_id];
+    const overdue = !loan.vraceno && loan.datum_do < today;
+    html += `<div class="loan-row ${overdue?'overdue':''}">
+      <div class="loan-info">
+        <div class="loan-name">${item?.nazev || loan.predmet_id}</div>
+        <div class="loan-meta">👤 ${customer?.jmeno || loan.zakaznik_id}</div>
+        ${loan.crew ? `<div class="loan-meta" style="color:#7C3AED">🎪 ${loan.crew}</div>` : ''}
+        <div class="loan-meta">${loan.datum_od} → ${loan.datum_do}</div>
+      </div>
+      <div class="loan-right">
+        <span class="badge ${loan.vraceno?'badge-green':overdue?'badge-red':'badge-blue'}">${loan.vraceno?'✅ Vráceno':overdue?'⚠️ Po splatnosti':'📦 Aktivní'}</span>
+        <div class="item-price">${loan.cena} Kč/den</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('history-list').innerHTML = html;
+}
+
+// ── SCANNER ──────────────────────────────────────────────────
+function setScanMode(mode) {
+  scanMode = mode;
+  document.getElementById('mode-loan').classList.toggle('active', mode === 'loan');
+  document.getElementById('mode-return').classList.toggle('active', mode === 'return');
+}
+
+let html5QrCode = null;
+let scanAnimFrame = null;
+
+async function startCamera() {
+  try {
+    stopCamera();
+    const video = document.getElementById('scanner-video');
+    
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { 
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      }
+    });
+    
+    video.srcObject = stream;
+    cameraStream = stream;
+    video.setAttribute('playsinline', true);
+    video.setAttribute('autoplay', true);
+    video.muted = true;
+    
+    await video.play();
+    
+    // Use interval instead of requestAnimationFrame for iOS Safari
+    scanAnimFrame = setInterval(() => scanFrame(), 150);
+    
+  } catch(e) {
+    console.error('Camera error:', e);
+    document.getElementById('scanner-hint').textContent = '⚠️ Kamera nedostupná — zadej ID ručně níže';
+  }
+}
+
+function scanFrame() {
+  const video = document.getElementById('scanner-video');
+  const canvas = document.getElementById('scanner-canvas');
+  if (!video || !canvas || !cameraStream) return;
+  if (video.paused || video.ended) return;
+  if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+  try {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { 
+      inversionAttempts: 'attemptBoth'
+    });
+    if (code && code.data) {
+      clearInterval(scanAnimFrame);
+      scanAnimFrame = null;
+      navigator.vibrate?.(80);
+      stopCamera();
+      document.getElementById('scanner-hint').textContent = '✅ Načteno: ' + code.data;
+      processCode(code.data).then(() => {
+        setTimeout(() => {
+          if (document.getElementById('page-scanner').classList.contains('active')) {
+            document.getElementById('scanner-hint').textContent = 'Namiř kameru na QR kód';
+            startCamera();
+          }
+        }, 2000);
+      });
+    }
+  } catch(e) {
+    // ignore frame errors
+  }
+}
+
+async function stopCamera() {
+  if (scanAnimFrame) { clearInterval(scanAnimFrame); scanAnimFrame = null; }
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  if (html5QrCode) { try { await html5QrCode.stop(); } catch(e) {} html5QrCode = null; }
+}
+
+async function scanFromPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('scanner-hint').textContent = '⏳ Zpracovávám...';
+  try {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      if (code) {
+        document.getElementById('scanner-hint').textContent = '✅ Načteno: ' + code.data;
+        processCode(code.data);
+      } else {
+        document.getElementById('scanner-hint').textContent = '❌ Kód se nepodařilo přečíst — zkus znovu';
+      }
+    };
+    img.src = URL.createObjectURL(file);
+  } catch(e) {
+    document.getElementById('scanner-hint').textContent = '❌ Chyba při zpracování';
+  }
+  input.value = '';
+}
+
+async function processManualId() {
+  const id = document.getElementById('manual-id').value.trim();
+  if (!id) return;
+  await processCode(id);
+  document.getElementById('manual-id').value = '';
+}
+
+async function processCode(code) {
+  code = code.trim();
+  if (scanMode === 'loan') {
+    const item = state.items.find(i => i.id.trim() === code);
+    if (!item) { showToast(`❌ Předmět "${code}" nenalezen`); return; }
+    if (item.stav === 'pujceno') { showToast(`⚠️ "${item.nazev}" je již půjčený`); return; }
+    openLoanModal(item);
+  } else {
+    const loan = state.loans.find(l => l.predmet_id.trim() === code && !l.vraceno);
+    if (!loan) { showToast(`❌ Žádná aktivní půjčka pro "${code}"`); return; }
+    openReturnModal(loan);
+  }
+}
+
+// ── LOAN MODAL ───────────────────────────────────────────────
+function openLoanModal(item) {
+  selectedItem = item;
+  selectedCustomer = null;
+  selectedCrewMember = null;
+  selectedDays = 7;
+  const details = [item.barva, item.rozmer, item.popis].filter(Boolean).join(' • ');
+  const lokaceInfo = [item.lokace, item.regal, item.prepravka].filter(Boolean).join(' / ');
+  document.getElementById('loan-item-info').innerHTML = `
+    <div class="card" style="margin-bottom:12px;">
+      <div style="font-size:18px;font-weight:700">${item.nazev}</div>
+      <div style="font-size:12px;color:var(--gray)">${item.kategorie} • ID: ${item.id}</div>
+      ${details ? `<div style="font-size:13px;color:#374151;margin-top:4px">${details}</div>` : ''}
+      ${lokaceInfo ? `<div style="font-size:11px;color:#9CA3AF;margin-top:2px">📍 ${lokaceInfo}</div>` : ''}
+      ${item.cena_den && item.cena_den !== '0' ? `<div style="font-size:15px;color:var(--primary);font-weight:600;margin-top:4px">${item.cena_den} Kč / den</div>` : ''}
+    </div>`;
+  document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
+  document.querySelector('.day-chip:nth-child(3)').classList.add('active');
+  document.getElementById('days-custom').value = 7;
+  document.getElementById('customer-filter').value = '';
+  updateLoanSummary();
+  renderCustomerSelect();
+  renderCrewSelect();
+  document.getElementById('modal-loan').classList.remove('hidden');
+}
+
+function setDays(days, el) {
+  selectedDays = days;
+  document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('days-custom').value = days;
+  updateLoanSummary();
+}
+
+function updateDaysFromInput() {
+  selectedDays = parseInt(document.getElementById('days-custom').value) || 1;
+  document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
+  updateLoanSummary();
+}
+
+function updateLoanSummary() {
+  if (!selectedItem) return;
+  const returnDate = new Date();
+  returnDate.setDate(returnDate.getDate() + selectedDays);
+  const dateStr = returnDate.toISOString().split('T')[0];
+  const total = selectedDays * parseFloat(selectedItem.cena_den);
+  document.getElementById('loan-summary').innerHTML = `Vrátit do: <strong>${dateStr}</strong> &nbsp;|&nbsp; Celkem: <strong style="color:var(--primary)">${total} Kč</strong>`;
+}
+
+function renderCustomerSelect() {
+  const search = document.getElementById('customer-filter')?.value || '';
+  const searchLower = search.toLowerCase();
+  const filtered = state.customers.filter(c => !searchLower || c.jmeno?.toLowerCase().includes(searchLower) || c.telefon?.includes(search));
+  let html = '';
+
+  // Free text option if typed something not matching a customer
+  if (search && !state.customers.find(c => c.jmeno?.toLowerCase() === searchLower)) {
+    html += `<div class="customer-select-item ${selectedCustomer?.id === '__freetext__' ? 'selected' : ''}" onclick="selectFreeTextCustomer('${search.replace(/'/g, "\\'")}')">
+      <div class="avatar" style="width:36px;height:36px;font-size:14px;background:#FEF3C7;color:#D97706">🎪</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600">${search}</div><div style="font-size:12px;color:var(--gray)">Název akce / jiný</div></div>
+      ${selectedCustomer?.id === '__freetext__' ? '<span class="check">✓</span>' : ''}
+    </div>`;
+  }
+
+  filtered.forEach(c => {
+    const sel = selectedCustomer?.id === c.id;
+    html += `<div class="customer-select-item ${sel?'selected':''}" onclick="selectCustomer('${c.id}')">
+      <div class="avatar" style="width:36px;height:36px;font-size:14px">${(c.jmeno||'?')[0].toUpperCase()}</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600">${c.jmeno}</div><div style="font-size:12px;color:var(--gray)">${c.telefon||''}</div></div>
+      ${sel ? '<span class="check">✓</span>' : ''}
+    </div>`;
+  });
+
+  if (!html) html = '<div class="empty" style="padding:12px;font-size:13px">Začni psát jméno nebo název akce</div>';
+  document.getElementById('customer-select-list').innerHTML = html;
+}
+
+function selectCustomer(id) {
+  selectedCustomer = state.customers.find(c => c.id === id);
+  renderCustomerSelect();
+}
+
+function selectFreeTextCustomer(name) {
+  selectedCustomer = { id: '__freetext__', jmeno: name };
+  renderCustomerSelect();
+}
+
+function renderCrewSelect() {
+  let html = '';
+  if (state.crew.length === 0) {
+    html = '<div style="font-size:13px;color:var(--gray);padding:8px">Žádní členové crew — přidej je do listu Crew v tabulce</div>';
+  } else {
+    state.crew.forEach(c => {
+      const sel = selectedCrewMember?.id === c.id;
+      html += `<div class="customer-select-item ${sel?'selected':''}" onclick="selectCrew('${c.id}')">
+        <div class="avatar" style="width:36px;height:36px;font-size:14px;background:#F3E8FF;color:#7C3AED">${(c.jmeno||'?')[0].toUpperCase()}</div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">${c.jmeno}</div></div>
+        ${sel ? '<span class="check">✓</span>' : ''}
+      </div>`;
+    });
+  }
+  document.getElementById('crew-select-list').innerHTML = html;
+}
+
+function selectCrew(id) {
+  selectedCrewMember = state.crew.find(c => c.id === id);
+  renderCrewSelect();
+}
+
+async function confirmLoan() {
+  if (!selectedCustomer) { showToast('⚠️ Vyber zákazníka nebo zadej název akce'); return; }
+  if (!selectedCrewMember) { showToast('⚠️ Vyber člena crew'); return; }
+  const btn = document.getElementById('btn-confirm-loan');
+  btn.disabled = true;
+  btn.textContent = 'Ukládám...';
+  try {
+    const returnDate = new Date();
+    returnDate.setDate(returnDate.getDate() + selectedDays);
+    const dateStr = returnDate.toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    const id = 'L' + Date.now();
+
+    // Prefix dates with apostrophe to prevent Google Sheets from converting to numbers
+    const zakaznikValue = selectedCustomer.id === '__freetext__' ? selectedCustomer.jmeno : selectedCustomer.id.trim();
+    await apiPost(SHEETS.LOANS, { 
+      id, 
+      predmet_id: selectedItem.id.trim(), 
+      zakaznik_id: zakaznikValue,
+      datum_od: "'" + today, 
+      datum_do: "'" + dateStr, 
+      vraceno: 'false', 
+      cena: String(selectedItem.cena_den),
+      crew: selectedCrewMember.jmeno
+    });
+    await apiPatch(SHEETS.ITEMS, 'id', selectedItem.id, { stav: 'pujceno' });
+    await loadAll();
+    closeModal('modal-loan');
+    showToast(`✅ "${selectedItem.nazev}" půjčeno ${selectedCustomer.jmeno} (crew: ${selectedCrewMember.jmeno})`);
+  } catch(e) {
+    console.error(e);
+    showToast('❌ Chyba při půjčení');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ Potvrdit půjčení';
+  }
+}
+
+// ── RETURN MODAL ─────────────────────────────────────────────
+function openReturnModal(loan) {
+  selectedLoan = loan;
+  const item = state.items.find(i => i.id.trim() === loan.predmet_id?.trim());
+  const customer = state.customers.find(c => c.id.trim() === loan.zakaznik_id?.trim());
+  const today = new Date().toISOString().split('T')[0];
+  const datumOd = loan.datum_od || loan['datum od'] || today;
+  const datumDo = loan.datum_do || loan['datum do'] || today;
+  const overdue = datumDo < today;
+  const days = Math.max(1, Math.ceil((new Date(today) - new Date(datumOd)) / 86400000));
+  const total = item ? days * parseFloat(item.cena_den || 0) : 0;
+
+  document.getElementById('return-info').innerHTML = `
+    ${overdue ? `<div class="overdue-banner"><p>⚠️ Vráceno po splatnosti</p></div>` : ''}
+    <div class="card">
+      <div class="card-title">Předmět</div>
+      <div style="font-size:17px;font-weight:700">${item?.nazev || loan.predmet_id}</div>
+      <div style="font-size:12px;color:var(--gray)">${item?.kategorie || ''}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Zákazník</div>
+      <div style="font-size:17px;font-weight:700">${customer?.jmeno || loan.zakaznik_id}</div>
+      <div style="font-size:12px;color:var(--gray)">${customer?.telefon || ''}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Shrnutí</div>
+      <div class="info-row"><span class="info-label">Půjčeno od</span><span class="info-value">${datumOd}</span></div>
+      <div class="info-row"><span class="info-label">Vrátit do</span><span class="info-value" style="color:${overdue?'#DC2626':'inherit'}">${datumDo}</span></div>
+      <div class="info-row"><span class="info-label">Vráceno</span><span class="info-value">${today}</span></div>
+      <div class="info-row"><span class="info-label">Celkem za půjčku</span><span class="info-value" style="color:var(--primary)">${total} Kč</span></div>
+    </div>`;
+  document.getElementById('modal-return').classList.remove('hidden');
+}
+
+async function confirmReturn() {
+  const btn = document.getElementById('btn-confirm-return');
+  btn.disabled = true;
+  btn.textContent = 'Ukládám...';
+  try {
+    await apiPatch(SHEETS.LOANS, 'id', selectedLoan.id, { vraceno: 'true' });
+    await apiPatch(SHEETS.ITEMS, 'id', selectedLoan.predmet_id, { stav: 'dostupny' });
+    await loadAll();
+    closeModal('modal-return');
+    showToast('✅ Předmět úspěšně vrácen');
+  } catch(e) {
+    showToast('❌ Chyba při vrácení');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ Potvrdit vrácení';
+  }
+}
+
+// ── ADD ITEM ─────────────────────────────────────────────────
+function setCategory(cat, el) {
+  selectedCategory = cat;
+  document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function openAddItem() {
+  document.getElementById('item-nazev').value = '';
+  document.getElementById('item-cena').value = '';
+  document.getElementById('item-popis').value = '';
+  selectedCategory = 'Kola';
+  document.querySelectorAll('.cat-chip').forEach((c,i) => c.classList.toggle('active', i===0));
+  document.getElementById('modal-add-item').classList.remove('hidden');
+}
+
+async function saveItem() {
+  const nazev = document.getElementById('item-nazev').value.trim();
+  const cena = document.getElementById('item-cena').value.trim();
+  if (!nazev || !cena) { showToast('⚠️ Vyplň název a cenu'); return; }
+  const btn = document.getElementById('btn-save-item');
+  btn.disabled = true;
+  btn.textContent = 'Ukládám...';
+  try {
+    const id = 'P' + Date.now();
+    await apiPost(SHEETS.ITEMS, { id, nazev, kategorie: selectedCategory, stav: 'dostupny', cena_den: cena, popis: document.getElementById('item-popis').value.trim() });
+    await loadAll();
+    closeModal('modal-add-item');
+    showToast(`✅ Předmět "${nazev}" přidán`);
+  } catch(e) {
+    showToast('❌ Chyba při ukládání');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Uložit předmět';
+  }
+}
+
+// ── ADD CUSTOMER ─────────────────────────────────────────────
+function openAddCustomer() {
+  document.getElementById('cust-jmeno').value = '';
+  document.getElementById('cust-telefon').value = '';
+  document.getElementById('cust-email').value = '';
+  document.getElementById('modal-add-customer').classList.remove('hidden');
+}
+
+async function saveCustomer() {
+  const jmeno = document.getElementById('cust-jmeno').value.trim();
+  if (!jmeno) { showToast('⚠️ Zadej jméno zákazníka'); return; }
+  const btn = document.getElementById('btn-save-customer');
+  btn.disabled = true;
+  btn.textContent = 'Ukládám...';
+  try {
+    const id = 'Z' + Date.now();
+    const today = new Date().toISOString().split('T')[0];
+    await apiPost(SHEETS.CUSTOMERS, { id, jmeno, telefon: document.getElementById('cust-telefon').value.trim(), email: document.getElementById('cust-email').value.trim(), datum_reg: today });
+    await loadAll();
+    closeModal('modal-add-customer');
+    showToast(`✅ Zákazník "${jmeno}" přidán`);
+  } catch(e) {
+    showToast('❌ Chyba při ukládání');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Uložit zákazníka';
+  }
+}
+
+function openAddCrew() {
+  document.getElementById('crew-jmeno').value = '';
+  document.getElementById('modal-add-crew').classList.remove('hidden');
+}
+
+async function saveCrew() {
+  const jmeno = document.getElementById('crew-jmeno').value.trim();
+  if (!jmeno) { showToast('⚠️ Zadej jméno'); return; }
+  const btn = document.getElementById('btn-save-crew');
+  btn.disabled = true;
+  btn.textContent = 'Ukládám...';
+  try {
+    const id = 'C' + Date.now();
+    await apiPost(SHEETS.CREW, { id, jmeno });
+    await loadAll();
+    closeModal('modal-add-crew');
+    showToast(`✅ "${jmeno}" přidán do crew`);
+  } catch(e) {
+    showToast('❌ Chyba při ukládání');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Uložit';
+  }
+}
+
+// ── UTILS ────────────────────────────────────────────────────
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.add('hidden');
+  });
+});
+
+// ── INIT ─────────────────────────────────────────────────────
+(function() {
+  const PASS = 'negri';
+  const KEY = 'he_pujcovna_auth';
+  if (sessionStorage.getItem(KEY) !== '1') {
+    const entered = prompt('🔒 Zadej heslo:');
+    if (entered !== PASS) {
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;flex-direction:column;gap:16px;background:#111;color:white"><div style="font-size:48px">🔒</div><div style="font-size:18px;font-weight:600">Nesprávné heslo</div><button onclick="location.reload()" style="padding:12px 24px;background:#2563EB;color:white;border:none;border-radius:10px;font-size:15px;cursor:pointer">Zkusit znovu</button></div>';
+      return;
+    }
+    sessionStorage.setItem(KEY, '1');
+  }
+  loadAll();
+})();
+</script>
+</body>
+</html>
