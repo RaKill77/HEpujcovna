@@ -352,20 +352,14 @@
     <input class="search-input" id="customer-filter" placeholder="Hledat zákazníka nebo zadej název akce..." oninput="renderCustomerSelect()">
     <div id="customer-select-list" style="max-height:160px;overflow-y:auto;margin-bottom:4px;"></div>
 
-    <!-- Remember customer checkbox -->
+    <!-- Remember checkbox -->
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray);margin-bottom:10px;cursor:pointer;">
-      <input type="checkbox" id="remember-customer" style="width:16px;height:16px;cursor:pointer;" onchange="toggleRememberCustomer()">
-      Zapamatovat zákazníka/akci pro další půjčení
+      <input type="checkbox" id="remember-loan" style="width:16px;height:16px;cursor:pointer;" onchange="toggleRememberLoan()">
+      📌 Zapamatovat nastavení (zákazník + crew)
     </label>
 
     <div class="field-label">Crew člen *</div>
     <div id="crew-select-list" style="max-height:140px;overflow-y:auto;margin-bottom:4px;"></div>
-
-    <!-- Remember crew checkbox -->
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray);margin-bottom:10px;cursor:pointer;">
-      <input type="checkbox" id="remember-crew" style="width:16px;height:16px;cursor:pointer;" onchange="toggleRememberCrew()">
-      Zapamatovat crew pro další půjčení
-    </label>
 
     <button class="btn btn-success" onclick="confirmLoan()" id="btn-confirm-loan">✅ Potvrdit půjčení</button>
     <button class="btn btn-gray" onclick="closeModal('modal-loan')">Zrušit</button>
@@ -379,13 +373,9 @@
     <div id="return-info"></div>
     <div class="field-label">Crew člen při vrácení</div>
     <div id="return-crew-list" style="max-height:120px;overflow-y:auto;margin-bottom:4px;"></div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray);margin-bottom:6px;cursor:pointer;">
-      <input type="checkbox" id="remember-crew-return" style="width:16px;height:16px;cursor:pointer;" onchange="toggleRememberCrewReturn()">
-      Zapamatovat crew pro další vrácení
-    </label>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray);margin-bottom:10px;cursor:pointer;">
-      <input type="checkbox" id="remember-customer-return" style="width:16px;height:16px;cursor:pointer;" onchange="toggleRememberCustomerReturn()">
-      Zapamatovat zákazníka/akci pro další vrácení
+      <input type="checkbox" id="remember-return" style="width:16px;height:16px;cursor:pointer;" onchange="toggleRememberReturn()">
+      📌 Zapamatovat nastavení (zákazník + crew)
     </label>
     <button class="btn btn-success" onclick="confirmReturn()" id="btn-confirm-return">✅ Potvrdit vrácení</button>
     <button class="btn btn-gray" onclick="closeModal('modal-return')">Zrušit</button>
@@ -706,57 +696,38 @@ function clearPersistent() {
   persistentCrew = null;
   updatePersistentBar();
   // Uncheck checkboxes
-  const rc = document.getElementById('remember-customer');
-  const rcr = document.getElementById('remember-crew');
-  const rcrr = document.getElementById('remember-crew-return');
-  if (rc) rc.checked = false;
-  if (rcr) rcr.checked = false;
-  if (rcrr) rcrr.checked = false;
+  ['remember-loan', 'remember-return'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  });
   showToast('Výběr vymazán');
 }
 
-function toggleRememberCustomer() {
-  const checked = document.getElementById('remember-customer').checked;
-  if (checked && selectedCustomer) {
-    persistentCustomer = selectedCustomer;
-    showToast(`📌 Zákazník "${selectedCustomer.jmeno}" zapamatován`);
+function toggleRememberLoan() {
+  const checked = document.getElementById('remember-loan').checked;
+  if (checked) {
+    if (selectedCustomer) persistentCustomer = selectedCustomer;
+    if (selectedCrewMember) persistentCrew = selectedCrewMember;
+    const parts = [selectedCustomer?.jmeno, selectedCrewMember?.jmeno].filter(Boolean);
+    if (parts.length) showToast(`📌 Zapamatováno: ${parts.join(' + ')}`);
   } else {
     persistentCustomer = null;
-  }
-  updatePersistentInfoBar();
-}
-
-function toggleRememberCrew() {
-  const checked = document.getElementById('remember-crew').checked;
-  if (checked && selectedCrewMember) {
-    persistentCrew = selectedCrewMember;
-    showToast(`📌 Crew "${selectedCrewMember.jmeno}" zapamatován`);
-  } else if (!checked) {
     persistentCrew = null;
   }
   updatePersistentInfoBar();
 }
 
-function toggleRememberCrewReturn() {
-  const checked = document.getElementById('remember-crew-return').checked;
-  if (checked && selectedCrewMember) {
-    persistentCrew = selectedCrewMember;
-    showToast(`📌 Crew "${selectedCrewMember.jmeno}" zapamatován`);
-  } else if (!checked) {
-    persistentCrew = null;
-  }
-}
-
-function toggleRememberCustomerReturn() {
-  const checked = document.getElementById('remember-customer-return').checked;
-  if (checked && selectedLoan) {
-    const customer = state.customers.find(c => c.id.trim() === selectedLoan.zakaznik_id.trim());
-    if (customer) {
-      persistentCustomer = customer;
-      showToast(`📌 "${customer.jmeno}" zapamatován/a`);
-    }
-  } else if (!checked) {
+function toggleRememberReturn() {
+  const checked = document.getElementById('remember-return').checked;
+  if (checked) {
+    if (selectedCrewMember) persistentCrew = selectedCrewMember;
+    const customer = state.customers.find(c => c.id.trim() === selectedLoan?.zakaznik_id?.trim());
+    if (customer) persistentCustomer = customer;
+    const parts = [customer?.jmeno, selectedCrewMember?.jmeno].filter(Boolean);
+    if (parts.length) showToast(`📌 Zapamatováno: ${parts.join(' + ')}`);
+  } else {
     persistentCustomer = null;
+    persistentCrew = null;
   }
   updatePersistentInfoBar();
 }
@@ -1319,11 +1290,9 @@ function openLoanModal(item) {
   document.querySelector('.day-chip:nth-child(3)').classList.add('active');
   document.getElementById('days-custom').value = 7;
   document.getElementById('customer-filter').value = '';
-  // Set checkboxes based on persistent state
-  const rc = document.getElementById('remember-customer');
-  const rcr = document.getElementById('remember-crew');
-  if (rc) rc.checked = !!persistentCustomer;
-  if (rcr) rcr.checked = !!persistentCrew;
+  // Set checkbox based on persistent state
+  const rl = document.getElementById('remember-loan');
+  if (rl) rl.checked = !!(persistentCustomer || persistentCrew);
   updateLoanSummary();
   renderCustomerSelect();
   renderCrewSelect();
@@ -1384,7 +1353,7 @@ function renderCustomerSelect() {
 
 function selectCustomer(id) {
   selectedCustomer = state.customers.find(c => c.id === id);
-  if (document.getElementById('remember-customer')?.checked) {
+  if (document.getElementById('remember-loan')?.checked) {
     persistentCustomer = selectedCustomer;
   }
   renderCustomerSelect();
@@ -1393,7 +1362,7 @@ function selectCustomer(id) {
 
 function selectFreeTextCustomer(name) {
   selectedCustomer = { id: '__freetext__', jmeno: name };
-  if (document.getElementById('remember-customer')?.checked) {
+  if (document.getElementById('remember-loan')?.checked) {
     persistentCustomer = selectedCustomer;
   }
   renderCustomerSelect();
@@ -1438,7 +1407,7 @@ function renderReturnCrewSelect() {
 
 function selectCrew(id) {
   selectedCrewMember = state.crew.find(c => c.id === id);
-  if (document.getElementById('remember-crew')?.checked || document.getElementById('remember-crew-return')?.checked) {
+  if (document.getElementById('remember-loan')?.checked || document.getElementById('remember-return')?.checked) {
     persistentCrew = selectedCrewMember;
   }
   renderCrewSelect();
@@ -1530,10 +1499,8 @@ function openReturnModal(loan) {
 
   // Set crew from persistent if available
   selectedCrewMember = persistentCrew || null;
-  const rcrr = document.getElementById('remember-crew-return');
-  const rcr = document.getElementById('remember-customer-return');
-  if (rcrr) rcrr.checked = !!persistentCrew;
-  if (rcr) rcr.checked = !!persistentCustomer;
+  const rr = document.getElementById('remember-return');
+  if (rr) rr.checked = !!(persistentCustomer || persistentCrew);
   renderReturnCrewSelect();
   document.getElementById('modal-return').classList.remove('hidden');
 }
