@@ -453,7 +453,7 @@
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
-const API = 'https://sheetdb.io/api/v1/4tby3qkh06xs3';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbziHMTLe77ytXlNCW4epqIZZhewxATMZwRCFSt50dXWkqaNBvAWuq6rBxVjUlX75GgBFw/exec';
 const SHEETS = { ITEMS: 'Sklad', CUSTOMERS: 'Zakaznici', LOANS: 'Vypujcky', CREW: 'Crew' };
 
 // Mapování sloupců listu Sklad
@@ -493,83 +493,55 @@ let barcodeDetector = null;
 let scanning = false;
 
 // ── API ─────────────────────────────────────────────────────
-async function apiGet(sheet) {
-  const res = await fetch(`${API}?sheet=${sheet}`);
-  if (!res.ok) throw new Error('API chyba');
+async function scriptCall(params, body = null) {
+  const url = SCRIPT_URL + '?' + new URLSearchParams(params).toString();
+  const opts = body
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : { method: 'GET' };
+  const res = await fetch(url, opts);
   const text = await res.text();
-  // Fix UTF-8 encoding from SheetDB
-  try {
-    return JSON.parse(decodeURIComponent(escape(text)));
-  } catch(e) {
-    return JSON.parse(text);
-  }
+  try { return JSON.parse(text); } catch(e) { throw new Error('API chyba: ' + text.substring(0,100)); }
 }
 
 async function apiPost(sheet, data) {
-  const res = await fetch(`${API}?sheet=${sheet}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data })
-  });
-  if (!res.ok) throw new Error('API chyba');
-  return res.json();
+  return scriptCall({ action: 'addRow', sheet }, data);
 }
 
 async function apiDelete(sheet, column, value) {
-  const trimmedValue = String(value).trim();
-  const res = await fetch(`${API}/${column}/${encodeURIComponent(trimmedValue)}?sheet=${sheet}`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  if (!res.ok) throw new Error('API chyba při mazání');
-  return res.json();
+  return scriptCall({ action: 'deleteRow', sheet, col: column, val: String(value).trim() });
 }
 
 async function apiPatch(sheet, column, value, data) {
-  const trimmedValue = String(value).trim();
-  const res = await fetch(`${API}/${column}/${encodeURIComponent(trimmedValue)}?sheet=${sheet}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data })
-  });
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error('PATCH error:', errText);
-    throw new Error('API chyba: ' + errText);
-  }
-  return res.json();
+  return scriptCall({ action: 'updateRow', sheet, col: column, val: String(value).trim() }, data);
 }
 
 // ── LOAD DATA ────────────────────────────────────────────────
 async function loadAll() {
   try {
-    const [items, customers, loans, crew] = await Promise.all([
-      apiGet(SHEETS.ITEMS),
-      apiGet(SHEETS.CUSTOMERS),
-      apiGet(SHEETS.LOANS),
-      apiGet(SHEETS.CREW)
-    ]);
-    state.items = items.map(rowToItem);
-    state.customers = customers;
-    state.crew = crew.map(r => ({ id: (r['id'] || '').trim(), jmeno: r['jmeno'] || '' }));
-    state.loans = loans.map(l => ({
+    const data = await scriptCall({ action: 'getData' });
+    if (data.error) throw new Error(data.error);
+
+    state.items = (data.sklad || []).map(rowToItem);
+    state.customers = data.zakaznici || [];
+    state.crew = (data.crew || []).map(r => ({ id: (r['id'] || '').trim(), jmeno: r['jmeno'] || '' }));
+    state.loans = (data.vypujcky || []).map(l => ({
       ...l,
-      id: (l.id || '').trim(),
-      predmet_id: (l.predmet_id || l['predmet id'] || '').trim(),
-      zakaznik_id: (l.zakaznik_id || l['zakaznik id'] || '').trim(),
-      datum_od: l.datum_od || l['datum od'] || '',
-      datum_do: l.datum_do || l['datum do'] || '',
+      id: (String(l.id || '')).trim(),
+      predmet_id: (String(l.predmet_id || '')).trim(),
+      zakaznik_id: (String(l.zakaznik_id || '')).trim(),
+      datum_od: String(l.datum_od || ''),
+      datum_do: String(l.datum_do || ''),
       crew: l.crew || '',
-      vraceno: l.vraceno === 'TRUE' || l.vraceno === true || l.vraceno === 'true' || l.vraceno === 1 || l.vraceno === '1'
-    // Filter out entries with invalid dates (old test data with numeric dates)
-    })).filter(l => l.datum_do && l.datum_do.includes('-'));
+      vraceno: l.vraceno === true || l.vraceno === 'true' || l.vraceno === 'TRUE'
+    })).filter(l => l.datum_do && String(l.datum_do).includes('-'));
     renderDashboard();
     renderCatalog();
     renderCustomers();
     renderCrew();
     renderHistory();
   } catch(e) {
-    showToast('❌ Chyba načítání dat');
+    console.error(e);
+    showToast('❌ Chyba načítání dat: ' + e.message);
   }
 }
 
