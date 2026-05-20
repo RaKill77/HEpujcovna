@@ -190,6 +190,14 @@
 </head>
 <body>
 
+<!-- LOADING SCREEN -->
+<div id="loading-screen" style="position:fixed;inset:0;background:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:20px;">
+  <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>" style="width:64px;height:64px;">
+  <div style="color:white;font-size:18px;font-weight:600;font-family:sans-serif;">Půjčovna</div>
+  <div style="width:40px;height:40px;border:3px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+  <div style="color:rgba(255,255,255,0.5);font-size:13px;font-family:sans-serif;" id="loading-text">Načítám data...</div>
+</div>
+
 <!-- HEADER -->
 <div class="header" id="main-header" style="background:#111;justify-content:space-between;">
   <h1 id="header-title" style="font-size:16px;">🏪 Půjčovna</h1>
@@ -556,6 +564,8 @@ function applyData(data) {
   renderCustomers();
   renderCrew();
   renderHistory();
+  const ls = document.getElementById('loading-screen');
+  if (ls) ls.style.display = 'none';
 }
 
 async function loadAll(forceRefresh = false) {
