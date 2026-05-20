@@ -518,31 +518,73 @@ async function apiPatch(sheet, column, value, data) {
 }
 
 // ── LOAD DATA ────────────────────────────────────────────────
-async function loadAll() {
+const CACHE_KEY = 'he_pujcovna_cache';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minut
+
+function saveCache(data) {
   try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+  } catch(e) {}
+}
+
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) return null;
+    return data;
+  } catch(e) { return null; }
+}
+
+function applyData(data) {
+  state.items = (data.sklad || []).map(rowToItem);
+  state.customers = data.zakaznici || [];
+  state.crew = (data.crew || []).map(r => ({ id: (r['id'] || '').trim(), jmeno: r['jmeno'] || '' }));
+  state.loans = (data.vypujcky || []).map(l => ({
+    ...l,
+    id: (String(l.id || '')).trim(),
+    predmet_id: (String(l.predmet_id || '')).trim(),
+    zakaznik_id: (String(l.zakaznik_id || '')).trim(),
+    datum_od: String(l.datum_od || ''),
+    datum_do: String(l.datum_do || ''),
+    crew: l.crew || '',
+    vraceno: l.vraceno === true || l.vraceno === 'true' || l.vraceno === 'TRUE'
+  })).filter(l => l.datum_do && String(l.datum_do).includes('-'));
+  renderDashboard();
+  renderCatalog();
+  renderCustomers();
+  renderCrew();
+  renderHistory();
+}
+
+async function loadAll(forceRefresh = false) {
+  try {
+    if (forceRefresh) {
+      try { localStorage.removeItem(CACHE_KEY); } catch(e) {}
+    }
+    // Načti z cache pro okamžité zobrazení
+    if (!forceRefresh) {
+      const cached = loadCache();
+      if (cached) {
+        applyData(cached);
+        // Obnov na pozadí
+        scriptCall({ action: 'getData' }).then(data => {
+          if (!data.error) { saveCache(data); applyData(data); }
+        });
+        return;
+      }
+    }
+    // Žádná cache — načti normálně
+    showToast('⏳ Načítám data...');
     const data = await scriptCall({ action: 'getData' });
     if (data.error) throw new Error(data.error);
-
-    state.items = (data.sklad || []).map(rowToItem);
-    state.customers = data.zakaznici || [];
-    state.crew = (data.crew || []).map(r => ({ id: (r['id'] || '').trim(), jmeno: r['jmeno'] || '' }));
-    state.loans = (data.vypujcky || []).map(l => ({
-      ...l,
-      id: (String(l.id || '')).trim(),
-      predmet_id: (String(l.predmet_id || '')).trim(),
-      zakaznik_id: (String(l.zakaznik_id || '')).trim(),
-      datum_od: String(l.datum_od || ''),
-      datum_do: String(l.datum_do || ''),
-      crew: l.crew || '',
-      vraceno: l.vraceno === true || l.vraceno === 'true' || l.vraceno === 'TRUE'
-    })).filter(l => l.datum_do && String(l.datum_do).includes('-'));
-    renderDashboard();
-    renderCatalog();
-    renderCustomers();
-    renderCrew();
-    renderHistory();
+    saveCache(data);
+    applyData(data);
   } catch(e) {
     console.error(e);
+    showToast('❌ Chyba načítání: ' + e.message);
+  }
     showToast('❌ Chyba načítání dat: ' + e.message);
   }
 }
@@ -1009,7 +1051,7 @@ async function deleteCustomer(id, jmeno) {
   if (!confirm(`Smazat zákazníka "${jmeno}"?\n\nHistorie půjček zůstane zachována.`)) return;
   try {
     await apiDelete(SHEETS.CUSTOMERS, 'id', id);
-    await loadAll();
+    await loadAll(true);
     showToast(`✅ "${jmeno}" smazán`);
   } catch(e) {
     showToast('❌ Chyba při mazání');
@@ -1049,7 +1091,7 @@ async function deleteCrew(id, jmeno) {
   if (!confirm(`Smazat "${jmeno}" z crew?`)) return;
   try {
     await apiDelete(SHEETS.CREW, 'id', id);
-    await loadAll();
+    await loadAll(true);
     showToast(`✅ "${jmeno}" smazán z crew`);
   } catch(e) {
     showToast('❌ Chyba při mazání');
@@ -1427,7 +1469,7 @@ async function confirmLoan() {
       crew: selectedCrewMember.jmeno
     });
     await apiPatch(SHEETS.ITEMS, 'id', selectedItem.id, { stav: 'pujceno' });
-    await loadAll();
+    await loadAll(true);
     closeModal('modal-loan');
     showToast(`✅ "${selectedItem.nazev}" půjčeno ${selectedCustomer.jmeno} (crew: ${selectedCrewMember.jmeno})`);
   } catch(e) {
@@ -1486,7 +1528,7 @@ async function confirmReturn() {
   try {
     await apiPatch(SHEETS.LOANS, 'id', selectedLoan.id, { vraceno: 'true' });
     await apiPatch(SHEETS.ITEMS, 'id', selectedLoan.predmet_id, { stav: 'dostupny' });
-    await loadAll();
+    await loadAll(true);
     closeModal('modal-return');
     showToast('✅ Předmět úspěšně vrácen');
   } catch(e) {
@@ -1523,7 +1565,7 @@ async function saveItem() {
   try {
     const id = 'P' + Date.now();
     await apiPost(SHEETS.ITEMS, { id, nazev, kategorie: selectedCategory, stav: 'dostupny', cena_den: cena, popis: document.getElementById('item-popis').value.trim() });
-    await loadAll();
+    await loadAll(true);
     closeModal('modal-add-item');
     showToast(`✅ Předmět "${nazev}" přidán`);
   } catch(e) {
@@ -1552,7 +1594,7 @@ async function saveCustomer() {
     const id = 'Z' + Date.now();
     const today = new Date().toISOString().split('T')[0];
     await apiPost(SHEETS.CUSTOMERS, { id, jmeno, telefon: document.getElementById('cust-telefon').value.trim(), email: document.getElementById('cust-email').value.trim(), datum_reg: today });
-    await loadAll();
+    await loadAll(true);
     closeModal('modal-add-customer');
     showToast(`✅ Zákazník "${jmeno}" přidán`);
   } catch(e) {
@@ -1577,7 +1619,7 @@ async function saveCrew() {
   try {
     const id = 'C' + Date.now();
     await apiPost(SHEETS.CREW, { id, jmeno });
-    await loadAll();
+    await loadAll(true);
     closeModal('modal-add-crew');
     showToast(`✅ "${jmeno}" přidán do crew`);
   } catch(e) {
