@@ -453,7 +453,7 @@
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbziHMTLe77ytXlNCW4epqIZZhewxATMZwRCFSt50dXWkqaNBvAWuq6rBxVjUlX75GgBFw/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYWqcqbfEnPX8RAYr-fPb1pJ9MuGUlZcr1K3jCH1dcFTbQ-LHJGuwBGVzpcLrSMjsOeg/exec';
 const SHEETS = { ITEMS: 'Sklad', CUSTOMERS: 'Zakaznici', LOANS: 'Vypujcky', CREW: 'Crew' };
 
 // Mapování sloupců listu Sklad
@@ -494,11 +494,13 @@ let scanning = false;
 
 // ── API ─────────────────────────────────────────────────────
 async function scriptCall(params, body = null) {
+  // Apps Script nepodporuje POST s JSON body přes CORS
+  // Všechno posíláme jako GET parametry
+  if (body) {
+    params.body = JSON.stringify(body);
+  }
   const url = SCRIPT_URL + '?' + new URLSearchParams(params).toString();
-  const opts = body
-    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-    : { method: 'GET' };
-  const res = await fetch(url, opts);
+  const res = await fetch(url);
   const text = await res.text();
   try { return JSON.parse(text); } catch(e) { throw new Error('API chyba: ' + text.substring(0,100)); }
 }
