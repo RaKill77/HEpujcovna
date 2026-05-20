@@ -209,11 +209,28 @@
       <button class="mode-btn active" id="mode-loan" onclick="setScanMode('loan')">📷 Půjčit</button>
       <button class="mode-btn" id="mode-return" onclick="setScanMode('return')">↩️ Vrátit</button>
     </div>
+
+    <!-- Persistent selection bar -->
+    <div style="background:#F8F7FF;border:1px solid #E5E7EB;border-radius:12px;padding:10px 12px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:12px;font-weight:600;color:#374151">Aktivní výběr</span>
+        <button onclick="clearPersistent()" style="background:none;border:none;color:#9CA3AF;font-size:11px;cursor:pointer;">Vymazat</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="openPersistentCustomer()" id="btn-persistent-customer" style="flex:1;padding:8px 10px;border-radius:8px;border:1px dashed #D1D5DB;background:white;font-size:12px;cursor:pointer;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
+          🎪 <span id="persistent-customer-label">Vyber akci/zákazníka</span>
+        </button>
+        <button onclick="openPersistentCrew()" id="btn-persistent-crew" style="flex:1;padding:8px 10px;border-radius:8px;border:1px dashed #D1D5DB;background:white;font-size:12px;cursor:pointer;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
+          👥 <span id="persistent-crew-label">Vyber crew</span>
+        </button>
+      </div>
+    </div>
+
     <div style="position:relative;border-radius:16px;overflow:hidden;background:#000;margin-bottom:12px;">
-      <video id="scanner-video" autoplay playsinline muted style="width:100%;display:block;max-height:320px;object-fit:cover;"></video>
+      <video id="scanner-video" autoplay playsinline muted style="width:100%;display:block;max-height:260px;object-fit:cover;"></video>
       <canvas id="scanner-canvas" style="display:none;"></canvas>
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
-        <div style="width:200px;height:200px;position:relative;">
+        <div style="width:180px;height:180px;position:relative;">
           <div style="position:absolute;top:0;left:0;width:24px;height:24px;border-top:3px solid white;border-left:3px solid white;"></div>
           <div style="position:absolute;top:0;right:0;width:24px;height:24px;border-top:3px solid white;border-right:3px solid white;"></div>
           <div style="position:absolute;bottom:0;left:0;width:24px;height:24px;border-bottom:3px solid white;border-left:3px solid white;"></div>
@@ -225,7 +242,7 @@
     <div>
       <p style="font-size:13px;color:var(--gray);margin-bottom:8px;">Nebo zadej ID ručně:</p>
       <div style="display:flex;gap:8px;">
-        <input class="search-input" style="margin:0;flex:1;" id="manual-id" placeholder="např. P001" />
+        <input class="search-input" style="margin:0;flex:1;" id="manual-id" placeholder="např. LAT2025001" />
         <button class="btn btn-primary" style="width:auto;padding:11px 16px;margin:0;" onclick="processManualId()">Načíst</button>
       </div>
     </div>
@@ -379,6 +396,25 @@
   </div>
 </div>
 
+<!-- Persistent Customer Modal -->
+<div class="modal-overlay hidden" id="modal-persistent-customer">
+  <div class="modal">
+    <div class="modal-title">🎪 Vyber akci / zákazníka</div>
+    <input class="search-input" id="persistent-customer-search" placeholder="Hledat nebo zadej název akce..." oninput="renderPersistentCustomerList()">
+    <div id="persistent-customer-list" style="max-height:300px;overflow-y:auto;"></div>
+    <button class="btn btn-gray" onclick="closeModal('modal-persistent-customer')">Zavřít</button>
+  </div>
+</div>
+
+<!-- Persistent Crew Modal -->
+<div class="modal-overlay hidden" id="modal-persistent-crew">
+  <div class="modal">
+    <div class="modal-title">👥 Vyber člena crew</div>
+    <div id="persistent-crew-list" style="max-height:300px;overflow-y:auto;"></div>
+    <button class="btn btn-gray" onclick="closeModal('modal-persistent-crew')">Zavřít</button>
+  </div>
+</div>
+
 <!-- Add Crew Modal -->
 <div class="modal-overlay hidden" id="modal-add-crew">
   <div class="modal">
@@ -419,6 +455,9 @@ let scanMode = 'loan';
 let selectedItem = null;
 let selectedCustomer = null;
 let selectedCrewMember = null;
+// Persistent selections (stay until manually cleared)
+let persistentCustomer = null;
+let persistentCrew = null;
 let selectedLoan = null;
 let selectedDays = 1;
 let selectedCategory = 'Kola';
@@ -519,7 +558,7 @@ function navigate(page) {
   const titles = { dashboard: '🏪 Půjčovna', scanner: '📷 Skener', catalog: '📦 Katalog', customers: '👥 Akce/Zák', crew: '🎪 Crew', history: '📋 Historie' };
   document.getElementById('header-title').textContent = titles[page];
 
-  if (page === 'scanner') startCamera();
+  if (page === 'scanner') { startCamera(); updatePersistentBar(); }
   else stopCamera();
 }
 
@@ -533,25 +572,25 @@ function renderDashboard() {
 
   let html = `
     <div class="stats-grid">
-      <div class="stat-card" style="border-top-color:#16A34A">
+      <div class="stat-card" style="border-top-color:#16A34A;cursor:pointer;" onclick="navigate('catalog');setCatalogFilterByName('dostupny')">
         <div style="font-size:24px">✅</div>
         <div class="stat-value" style="color:#16A34A">${available}</div>
         <div class="stat-label">Dostupné</div>
       </div>
-      <div class="stat-card" style="border-top-color:#2563EB">
+      <div class="stat-card" style="border-top-color:#2563EB;cursor:pointer;" onclick="navigate('catalog');setCatalogFilterByName('pujceno')">
         <div style="font-size:24px">📦</div>
         <div class="stat-value" style="color:#2563EB">${loaned}</div>
         <div class="stat-label">Půjčeno</div>
       </div>
-      <div class="stat-card" style="border-top-color:${overdue.length>0?'#DC2626':'#6B7280'}">
+      <div class="stat-card" style="border-top-color:${overdue.length>0?'#DC2626':'#6B7280'};cursor:pointer;" onclick="navigate('history');historyActiveOnly=true;renderHistory()">
         <div style="font-size:24px">⚠️</div>
         <div class="stat-value" style="color:${overdue.length>0?'#DC2626':'#6B7280'}">${overdue.length}</div>
         <div class="stat-label">Po splatnosti</div>
       </div>
-      <div class="stat-card" style="border-top-color:#6B7280">
-        <div style="font-size:24px">👥</div>
+      <div class="stat-card" style="border-top-color:#6B7280;cursor:pointer;" onclick="navigate('customers')">
+        <div style="font-size:24px">🎪</div>
         <div class="stat-value" style="color:#6B7280">${state.customers.length}</div>
-        <div class="stat-label">Zákazníci</div>
+        <div class="stat-label">Akce/Zák</div>
       </div>
     </div>
 
@@ -601,9 +640,128 @@ function renderDashboard() {
   document.getElementById('dashboard-content').innerHTML = html;
 }
 
+// ── PERSISTENT SELECTION ─────────────────────────────────────
+function updatePersistentBar() {
+  const custLabel = document.getElementById('persistent-customer-label');
+  const crewLabel = document.getElementById('persistent-crew-label');
+  const custBtn = document.getElementById('btn-persistent-customer');
+  const crewBtn = document.getElementById('btn-persistent-crew');
+  if (custLabel && persistentCustomer) {
+    custLabel.textContent = persistentCustomer.jmeno;
+    custBtn.style.borderColor = '#2563EB';
+    custBtn.style.background = '#EFF6FF';
+  } else if (custLabel) {
+    custLabel.textContent = 'Vyber akci/zákazníka';
+    custBtn.style.borderColor = '#D1D5DB';
+    custBtn.style.background = 'white';
+  }
+  if (crewLabel && persistentCrew) {
+    crewLabel.textContent = persistentCrew.jmeno;
+    crewBtn.style.borderColor = '#7C3AED';
+    crewBtn.style.background = '#F5F3FF';
+  } else if (crewLabel) {
+    crewLabel.textContent = 'Vyber crew';
+    crewBtn.style.borderColor = '#D1D5DB';
+    crewBtn.style.background = 'white';
+  }
+}
+
+function clearPersistent() {
+  persistentCustomer = null;
+  persistentCrew = null;
+  updatePersistentBar();
+  showToast('Výběr vymazán');
+}
+
+function openPersistentCustomer() {
+  document.getElementById('persistent-customer-search').value = '';
+  renderPersistentCustomerList();
+  document.getElementById('modal-persistent-customer').classList.remove('hidden');
+}
+
+function renderPersistentCustomerList() {
+  const search = document.getElementById('persistent-customer-search')?.value || '';
+  const searchLower = search.toLowerCase();
+  const filtered = state.customers.filter(c => !searchLower || c.jmeno?.toLowerCase().includes(searchLower));
+  let html = '';
+
+  if (search && !state.customers.find(c => c.jmeno?.toLowerCase() === searchLower)) {
+    const sel = persistentCustomer?.id === '__freetext__' && persistentCustomer?.jmeno === search;
+    html += `<div class="customer-select-item ${sel?'selected':''}" onclick="setPersistentCustomer('__freetext__','${search.replace(/'/g,"\\'")}')">
+      <div class="avatar" style="width:36px;height:36px;font-size:14px;background:#FEF3C7;color:#D97706">🎪</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600">${search}</div><div style="font-size:12px;color:var(--gray)">Název akce</div></div>
+      ${sel?'<span class="check">✓</span>':''}
+    </div>`;
+  }
+
+  filtered.forEach(c => {
+    const sel = persistentCustomer?.id === c.id;
+    html += `<div class="customer-select-item ${sel?'selected':''}" onclick="setPersistentCustomer('${c.id}','${c.jmeno.replace(/'/g,"\\'")}')">
+      <div class="avatar" style="width:36px;height:36px;font-size:14px">${(c.jmeno||'?')[0].toUpperCase()}</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600">${c.jmeno}</div><div style="font-size:12px;color:var(--gray)">${c.telefon||''}</div></div>
+      ${sel?'<span class="check">✓</span>':''}
+    </div>`;
+  });
+
+  if (!html) html = '<div class="empty" style="padding:12px">Začni psát název akce nebo jméno</div>';
+  document.getElementById('persistent-customer-list').innerHTML = html;
+}
+
+function setPersistentCustomer(id, jmeno) {
+  if (id === '__freetext__') {
+    persistentCustomer = { id: '__freetext__', jmeno };
+  } else {
+    persistentCustomer = state.customers.find(c => c.id === id) || { id, jmeno };
+  }
+  updatePersistentBar();
+  closeModal('modal-persistent-customer');
+  showToast(`✅ Aktivní: ${jmeno}`);
+}
+
+function openPersistentCrew() {
+  renderPersistentCrewList();
+  document.getElementById('modal-persistent-crew').classList.remove('hidden');
+}
+
+function renderPersistentCrewList() {
+  let html = '';
+  if (state.crew.length === 0) {
+    html = '<div class="empty" style="padding:16px">Nejdříve přidej členy crew</div>';
+  } else {
+    state.crew.forEach(c => {
+      const sel = persistentCrew?.id === c.id;
+      html += `<div class="customer-select-item ${sel?'selected':''}" onclick="setPersistentCrew('${c.id}')">
+        <div class="avatar" style="width:36px;height:36px;font-size:14px;background:#F3E8FF;color:#7C3AED">${(c.jmeno||'?')[0].toUpperCase()}</div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">${c.jmeno}</div></div>
+        ${sel?'<span class="check">✓</span>':''}
+      </div>`;
+    });
+  }
+  document.getElementById('persistent-crew-list').innerHTML = html;
+}
+
+function setPersistentCrew(id) {
+  persistentCrew = state.crew.find(c => c.id === id);
+  updatePersistentBar();
+  closeModal('modal-persistent-crew');
+  showToast(`✅ Crew: ${persistentCrew?.jmeno}`);
+}
+
 // ── CATALOG ──────────────────────────────────────────────────
 let categoryFilter = 'Vše';
 let skladFilter = 'Vše';
+
+function setCatalogFilterByName(filter) {
+  catalogFilter = filter;
+  // Update filter chip UI after page renders
+  setTimeout(() => {
+    document.querySelectorAll('#catalog-filters .filter-chip').forEach(c => c.classList.remove('active'));
+    const chips = document.querySelectorAll('#catalog-filters .filter-chip');
+    const map = { 'Vše': 0, 'dostupny': 1, 'pujceno': 2, 'oprava': 3 };
+    if (chips[map[filter]]) chips[map[filter]].classList.add('active');
+    renderCatalog();
+  }, 50);
+}
 
 function setCatalogFilter(filter, el) {
   catalogFilter = filter;
@@ -969,8 +1127,9 @@ async function processCode(code) {
 // ── LOAN MODAL ───────────────────────────────────────────────
 function openLoanModal(item) {
   selectedItem = item;
-  selectedCustomer = null;
-  selectedCrewMember = null;
+  // Use persistent values if set
+  selectedCustomer = persistentCustomer || null;
+  selectedCrewMember = persistentCrew || null;
   selectedDays = 7;
   const details = [item.barva, item.rozmer, item.popis].filter(Boolean).join(' • ');
   const lokaceInfo = [item.lokace, item.regal, item.prepravka].filter(Boolean).join(' / ');
@@ -1088,8 +1247,20 @@ async function confirmLoan() {
     const today = new Date().toISOString().split('T')[0];
     const id = 'L' + Date.now();
 
-    // Prefix dates with apostrophe to prevent Google Sheets from converting to numbers
-    const zakaznikValue = selectedCustomer.id === '__freetext__' ? selectedCustomer.jmeno : selectedCustomer.id.trim();
+    // Auto-uložení nového zákazníka/akce pokud zadán jako volný text
+    let zakaznikValue = selectedCustomer.id === '__freetext__' ? selectedCustomer.jmeno : selectedCustomer.id.trim();
+    if (selectedCustomer.id === '__freetext__') {
+      // Zkontroluj jestli zákazník už neexistuje
+      const existing = state.customers.find(c => c.jmeno.toLowerCase() === selectedCustomer.jmeno.toLowerCase());
+      if (!existing) {
+        const newId = 'Z' + Date.now();
+        await apiPost(SHEETS.CUSTOMERS, { id: newId, jmeno: selectedCustomer.jmeno, telefon: '', email: '', datum_reg: today });
+        zakaznikValue = newId;
+      } else {
+        zakaznikValue = existing.id;
+      }
+    }
+
     await apiPost(SHEETS.LOANS, { 
       id, 
       predmet_id: selectedItem.id.trim(), 
