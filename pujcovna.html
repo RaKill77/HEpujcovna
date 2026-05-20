@@ -337,11 +337,36 @@
       <input class="field-input" style="width:70px;padding:6px 10px;text-align:center;" id="days-custom" type="number" min="1" value="1" oninput="updateDaysFromInput()">
     </div>
     <div id="loan-summary" style="font-size:13px;color:var(--gray);margin-bottom:12px;"></div>
+
+    <!-- Persistent info bar -->
+    <div id="persistent-info-bar" style="display:none;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <span id="persistent-info-text"></span>
+        </div>
+        <button onclick="clearPersistent();renderLoanModal()" style="background:none;border:none;color:#9CA3AF;font-size:11px;cursor:pointer;">✕ Vymazat</button>
+      </div>
+    </div>
+
     <div class="field-label">Zákazník / Název akce *</div>
     <input class="search-input" id="customer-filter" placeholder="Hledat zákazníka nebo zadej název akce..." oninput="renderCustomerSelect()">
     <div id="customer-select-list" style="max-height:160px;overflow-y:auto;margin-bottom:4px;"></div>
+
+    <!-- Remember customer checkbox -->
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray);margin-bottom:10px;cursor:pointer;">
+      <input type="checkbox" id="remember-customer" style="width:16px;height:16px;cursor:pointer;" onchange="toggleRememberCustomer()">
+      Zapamatovat zákazníka/akci pro další půjčení
+    </label>
+
     <div class="field-label">Crew člen *</div>
     <div id="crew-select-list" style="max-height:140px;overflow-y:auto;margin-bottom:4px;"></div>
+
+    <!-- Remember crew checkbox -->
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray);margin-bottom:10px;cursor:pointer;">
+      <input type="checkbox" id="remember-crew" style="width:16px;height:16px;cursor:pointer;" onchange="toggleRememberCrew()">
+      Zapamatovat crew pro další půjčení
+    </label>
+
     <button class="btn btn-success" onclick="confirmLoan()" id="btn-confirm-loan">✅ Potvrdit půjčení</button>
     <button class="btn btn-gray" onclick="closeModal('modal-loan')">Zrušit</button>
   </div>
@@ -352,6 +377,16 @@
   <div class="modal">
     <div class="modal-title">↩️ Vrácení předmětu</div>
     <div id="return-info"></div>
+    <div class="field-label">Crew člen při vrácení</div>
+    <div id="return-crew-list" style="max-height:120px;overflow-y:auto;margin-bottom:4px;"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray);margin-bottom:6px;cursor:pointer;">
+      <input type="checkbox" id="remember-crew-return" style="width:16px;height:16px;cursor:pointer;" onchange="toggleRememberCrewReturn()">
+      Zapamatovat crew pro další vrácení
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray);margin-bottom:10px;cursor:pointer;">
+      <input type="checkbox" id="remember-customer-return" style="width:16px;height:16px;cursor:pointer;" onchange="toggleRememberCustomerReturn()">
+      Zapamatovat zákazníka/akci pro další vrácení
+    </label>
     <button class="btn btn-success" onclick="confirmReturn()" id="btn-confirm-return">✅ Potvrdit vrácení</button>
     <button class="btn btn-gray" onclick="closeModal('modal-return')">Zrušit</button>
   </div>
@@ -670,7 +705,81 @@ function clearPersistent() {
   persistentCustomer = null;
   persistentCrew = null;
   updatePersistentBar();
+  // Uncheck checkboxes
+  const rc = document.getElementById('remember-customer');
+  const rcr = document.getElementById('remember-crew');
+  const rcrr = document.getElementById('remember-crew-return');
+  if (rc) rc.checked = false;
+  if (rcr) rcr.checked = false;
+  if (rcrr) rcrr.checked = false;
   showToast('Výběr vymazán');
+}
+
+function toggleRememberCustomer() {
+  const checked = document.getElementById('remember-customer').checked;
+  if (checked && selectedCustomer) {
+    persistentCustomer = selectedCustomer;
+    showToast(`📌 Zákazník "${selectedCustomer.jmeno}" zapamatován`);
+  } else {
+    persistentCustomer = null;
+  }
+  updatePersistentInfoBar();
+}
+
+function toggleRememberCrew() {
+  const checked = document.getElementById('remember-crew').checked;
+  if (checked && selectedCrewMember) {
+    persistentCrew = selectedCrewMember;
+    showToast(`📌 Crew "${selectedCrewMember.jmeno}" zapamatován`);
+  } else if (!checked) {
+    persistentCrew = null;
+  }
+  updatePersistentInfoBar();
+}
+
+function toggleRememberCrewReturn() {
+  const checked = document.getElementById('remember-crew-return').checked;
+  if (checked && selectedCrewMember) {
+    persistentCrew = selectedCrewMember;
+    showToast(`📌 Crew "${selectedCrewMember.jmeno}" zapamatován`);
+  } else if (!checked) {
+    persistentCrew = null;
+  }
+}
+
+function toggleRememberCustomerReturn() {
+  const checked = document.getElementById('remember-customer-return').checked;
+  if (checked && selectedLoan) {
+    const customer = state.customers.find(c => c.id.trim() === selectedLoan.zakaznik_id.trim());
+    if (customer) {
+      persistentCustomer = customer;
+      showToast(`📌 "${customer.jmeno}" zapamatován/a`);
+    }
+  } else if (!checked) {
+    persistentCustomer = null;
+  }
+  updatePersistentInfoBar();
+}
+
+function updatePersistentInfoBar() {
+  const bar = document.getElementById('persistent-info-bar');
+  const text = document.getElementById('persistent-info-text');
+  if (!bar || !text) return;
+  const parts = [];
+  if (persistentCustomer) parts.push(`🎪 ${persistentCustomer.jmeno}`);
+  if (persistentCrew) parts.push(`👥 ${persistentCrew.jmeno}`);
+  if (parts.length > 0) {
+    bar.style.display = 'block';
+    text.textContent = '📌 Zapamatováno: ' + parts.join(' • ');
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function renderLoanModal() {
+  renderCustomerSelect();
+  renderCrewSelect();
+  updatePersistentInfoBar();
 }
 
 function openPersistentCustomer() {
@@ -870,19 +979,85 @@ function renderCustomers() {
     html += `<div class="empty">Žádní zákazníci</div>`;
   } else {
     filtered.forEach(c => {
-      const activeCount = state.loans.filter(l => l.zakaznik_id === c.id && !l.vraceno).length;
-      html += `<div class="customer-card">
-        <div class="avatar">${(c.jmeno||'?')[0].toUpperCase()}</div>
-        <div style="flex:1">
-          <div style="font-size:15px;font-weight:600">${c.jmeno}</div>
-          <div style="font-size:12px;color:var(--gray)">${c.telefon || ''} ${c.email || ''}</div>
+      const activeLoans = state.loans.filter(l => l.zakaznik_id.trim() === c.id.trim() && !l.vraceno);
+      const allLoans = state.loans.filter(l => l.zakaznik_id.trim() === c.id.trim());
+      html += `<div class="customer-card" style="flex-direction:column;align-items:stretch;gap:0;padding:0;overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer;" onclick="toggleCustomerDetail('${c.id}')">
+          <div class="avatar">${(c.jmeno||'?')[0].toUpperCase()}</div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:600">${c.jmeno}</div>
+            <div style="font-size:12px;color:var(--gray)">${c.telefon || ''} ${c.email || ''}</div>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px">Celkem půjček: ${allLoans.length}</div>
+          </div>
+          ${activeLoans.length > 0 ? `<span class="badge badge-blue">${activeLoans.length} aktivní</span>` : ''}
+          <span style="color:#9CA3AF;font-size:14px;" id="chevron-${c.id}">▼</span>
+          <button onclick="event.stopPropagation();deleteCustomer('${c.id}','${c.jmeno.replace(/'/g, "\\'")}')" style="background:none;border:none;color:#DC2626;font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">−</button>
         </div>
-        ${activeCount > 0 ? `<span class="badge badge-blue">${activeCount} půjčeno</span>` : ''}
-        <button onclick="deleteCustomer('${c.id}','${c.jmeno.replace(/'/g, "\\'")}')" style="background:none;border:none;color:#DC2626;font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">−</button>
+        <div id="detail-${c.id}" style="display:none;border-top:1px solid var(--border);padding:12px;background:#F9FAFB;">
+          <div style="display:flex;gap:6px;margin-bottom:8px;">
+            <button class="filter-chip active loan-filter-btn" data-filter="vse" onclick="filterCustomerLoans('${c.id}','vse')" style="font-size:11px;padding:4px 10px;">Vše</button>
+            <button class="filter-chip loan-filter-btn" data-filter="aktivni" onclick="filterCustomerLoans('${c.id}','aktivni')" style="font-size:11px;padding:4px 10px;">📦 Aktivní</button>
+            <button class="filter-chip loan-filter-btn" data-filter="neaktivni" onclick="filterCustomerLoans('${c.id}','neaktivni')" style="font-size:11px;padding:4px 10px;">✅ Vrácené</button>
+          </div>
+          <div class="loan-detail-list">
+          ${allLoans.length === 0 ? '<div style="font-size:13px;color:var(--gray)">Žádné půjčky</div>' : 
+            allLoans.sort((a,b) => b.datum_od.localeCompare(a.datum_od)).map(loan => {
+              const item = state.items.find(i => i.id.trim() === loan.predmet_id.trim());
+              const today = new Date().toISOString().split('T')[0];
+              const overdue = !loan.vraceno && loan.datum_do < today;
+              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:13px;">
+                <div>
+                  <div style="font-weight:600;color:${loan.vraceno?'#6B7280':'#111827'}">${item?.nazev || loan.predmet_id}</div>
+                  <div style="font-size:11px;color:#9CA3AF">${loan.datum_od} → ${loan.datum_do}${loan.crew ? ' • 👥 '+loan.crew : ''}</div>
+                </div>
+                <span class="badge ${loan.vraceno?'badge-green':overdue?'badge-red':'badge-blue'}" style="font-size:10px;">${loan.vraceno?'✅':overdue?'⚠️':'📦'}</span>
+              </div>`;
+            }).join('')
+          }
+          </div>
+        </div>
       </div>`;
     });
   }
   document.getElementById('customer-list').innerHTML = html;
+}
+
+function toggleCustomerDetail(id) {
+  const detail = document.getElementById(`detail-${id}`);
+  const chevron = document.getElementById(`chevron-${id}`);
+  if (!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : 'block';
+  if (chevron) chevron.textContent = isOpen ? '▼' : '▲';
+}
+
+function filterCustomerLoans(id, filter) {
+  const detail = document.getElementById(`detail-${id}`);
+  if (!detail) return;
+  const today = new Date().toISOString().split('T')[0];
+  const allLoans = state.loans.filter(l => l.zakaznik_id.trim() === id.trim());
+  const filtered = filter === 'aktivni' ? allLoans.filter(l => !l.vraceno) 
+                 : filter === 'neaktivni' ? allLoans.filter(l => l.vraceno)
+                 : allLoans;
+
+  // Update active filter button
+  detail.querySelectorAll('.loan-filter-btn').forEach(b => b.classList.remove('active'));
+  detail.querySelector(`[data-filter="${filter}"]`)?.classList.add('active');
+
+  const listEl = detail.querySelector('.loan-detail-list');
+  if (!listEl) return;
+  listEl.innerHTML = filtered.length === 0 ? '<div style="font-size:13px;color:var(--gray);padding:4px 0">Žádné záznamy</div>' :
+    filtered.sort((a,b) => b.datum_od.localeCompare(a.datum_od)).map(loan => {
+      const item = state.items.find(i => i.id.trim() === loan.predmet_id.trim());
+      const overdue = !loan.vraceno && loan.datum_do < today;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:13px;">
+        <div>
+          <div style="font-weight:600;color:${loan.vraceno?'#6B7280':'#111827'}">${item?.nazev || loan.predmet_id}</div>
+          <div style="font-size:11px;color:#9CA3AF">${loan.datum_od} → ${loan.datum_do}${loan.crew ? ' • 👥 '+loan.crew : ''}</div>
+        </div>
+        <span class="badge ${loan.vraceno?'badge-green':overdue?'badge-red':'badge-blue'}" style="font-size:10px;">${loan.vraceno?'✅':overdue?'⚠️':'📦'}</span>
+      </div>`;
+    }).join('');
 }
 
 async function deleteCustomer(id, jmeno) {
@@ -1127,7 +1302,6 @@ async function processCode(code) {
 // ── LOAN MODAL ───────────────────────────────────────────────
 function openLoanModal(item) {
   selectedItem = item;
-  // Use persistent values if set
   selectedCustomer = persistentCustomer || null;
   selectedCrewMember = persistentCrew || null;
   selectedDays = 7;
@@ -1145,9 +1319,15 @@ function openLoanModal(item) {
   document.querySelector('.day-chip:nth-child(3)').classList.add('active');
   document.getElementById('days-custom').value = 7;
   document.getElementById('customer-filter').value = '';
+  // Set checkboxes based on persistent state
+  const rc = document.getElementById('remember-customer');
+  const rcr = document.getElementById('remember-crew');
+  if (rc) rc.checked = !!persistentCustomer;
+  if (rcr) rcr.checked = !!persistentCrew;
   updateLoanSummary();
   renderCustomerSelect();
   renderCrewSelect();
+  updatePersistentInfoBar();
   document.getElementById('modal-loan').classList.remove('hidden');
 }
 
@@ -1204,12 +1384,20 @@ function renderCustomerSelect() {
 
 function selectCustomer(id) {
   selectedCustomer = state.customers.find(c => c.id === id);
+  if (document.getElementById('remember-customer')?.checked) {
+    persistentCustomer = selectedCustomer;
+  }
   renderCustomerSelect();
+  updatePersistentInfoBar();
 }
 
 function selectFreeTextCustomer(name) {
   selectedCustomer = { id: '__freetext__', jmeno: name };
+  if (document.getElementById('remember-customer')?.checked) {
+    persistentCustomer = selectedCustomer;
+  }
   renderCustomerSelect();
+  updatePersistentInfoBar();
 }
 
 function renderCrewSelect() {
@@ -1229,9 +1417,33 @@ function renderCrewSelect() {
   document.getElementById('crew-select-list').innerHTML = html;
 }
 
+function renderReturnCrewSelect() {
+  const el = document.getElementById('return-crew-list');
+  if (!el) return;
+  let html = '';
+  if (state.crew.length === 0) {
+    html = '<div style="font-size:13px;color:var(--gray);padding:8px">Žádní členové crew</div>';
+  } else {
+    state.crew.forEach(c => {
+      const sel = selectedCrewMember?.id === c.id;
+      html += `<div class="customer-select-item ${sel?'selected':''}" onclick="selectCrew('${c.id}')">
+        <div class="avatar" style="width:36px;height:36px;font-size:14px;background:#F3E8FF;color:#7C3AED">${(c.jmeno||'?')[0].toUpperCase()}</div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:600">${c.jmeno}</div></div>
+        ${sel ? '<span class="check">✓</span>' : ''}
+      </div>`;
+    });
+  }
+  el.innerHTML = html;
+}
+
 function selectCrew(id) {
   selectedCrewMember = state.crew.find(c => c.id === id);
+  if (document.getElementById('remember-crew')?.checked || document.getElementById('remember-crew-return')?.checked) {
+    persistentCrew = selectedCrewMember;
+  }
   renderCrewSelect();
+  if (document.getElementById('return-crew-list')) renderReturnCrewSelect();
+  updatePersistentInfoBar();
 }
 
 async function confirmLoan() {
@@ -1315,6 +1527,14 @@ function openReturnModal(loan) {
       <div class="info-row"><span class="info-label">Vráceno</span><span class="info-value">${today}</span></div>
       <div class="info-row"><span class="info-label">Celkem za půjčku</span><span class="info-value" style="color:var(--primary)">${total} Kč</span></div>
     </div>`;
+
+  // Set crew from persistent if available
+  selectedCrewMember = persistentCrew || null;
+  const rcrr = document.getElementById('remember-crew-return');
+  const rcr = document.getElementById('remember-customer-return');
+  if (rcrr) rcrr.checked = !!persistentCrew;
+  if (rcr) rcr.checked = !!persistentCustomer;
+  renderReturnCrewSelect();
   document.getElementById('modal-return').classList.remove('hidden');
 }
 
